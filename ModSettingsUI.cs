@@ -1,0 +1,455 @@
+using System;
+using System.Linq;
+using System.Reflection;
+using HarmonyLib;
+using Godot;
+
+namespace sts2modtest
+{
+	/// <summary>
+	/// Handles in-game settings UI injection into the Modding Screen
+	/// </summary>
+	public static class ModSettingsUI
+	{
+		private static object _currentPanel = null;
+		private static ModSettings _currentSettings = null;
+
+		/// <summary>
+		/// Called when a mod is selected in the Modding Screen
+		/// </summary>
+		public static void RefreshForSelection(object infoContainer, object mod)
+		{
+			try
+			{
+				// Check if this is our mod
+				if (!IsThisMod(mod))
+				{
+					// Hide our panel if it exists and is valid
+					if (_currentPanel != null && IsNodeValid(_currentPanel))
+					{
+						SetVisible(_currentPanel, false);
+					}
+					return;
+				}
+
+				// Always reload settings from file to get latest values
+				_currentSettings = ModSettings.Load();
+			
+				// Create panel if it doesn't exist or is no longer valid
+				if (_currentPanel == null || !IsNodeValid(_currentPanel))
+				{
+					_currentPanel = CreateSettingsPanel(infoContainer);
+				}
+				else
+				{
+					// Update panel values with reloaded settings
+					UpdatePanelValues();
+				}
+
+				// Show panel
+				if (_currentPanel != null)
+				{
+					SetVisible(_currentPanel, true);
+				}
+			}
+			catch (Exception ex)
+			{
+				GD.PrintErr($"[ModSettingsUI] Error in RefreshForSelection: {ex.Message}");
+				GD.PrintErr($"[ModSettingsUI] Stack trace: {ex.StackTrace}");
+			}
+		}
+
+		private static bool IsThisMod(object mod)
+		{
+			if (mod == null)
+			{
+				return false;
+			}
+
+			try
+			{
+				var modType = mod.GetType();
+				var bindingFlags = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+
+				// Try to get pckName property
+				var properties = modType.GetProperties(bindingFlags);
+				GD.Print($"[ModSettingsUI] Available properties ({properties.Length}):");
+				foreach (var prop in properties)
+				{
+					try
+					{
+						var value = prop.GetValue(mod);
+						GD.Print($"  - {prop.Name} ({prop.PropertyType.Name}): {value}");
+					}
+					catch (Exception ex)
+					{
+						GD.Print($"  - {prop.Name} ({prop.PropertyType.Name}): <error: {ex.Message}>");
+					}
+				}
+ 
+				// List all fields
+				var fields = modType.GetFields(bindingFlags);
+				GD.Print($"[ModSettingsUI] Available fields ({fields.Length}):");
+				foreach (var field in fields)
+				{
+					try
+					{
+						var value = field.GetValue(mod);
+						GD.Print($"  - {field.Name} ({field.FieldType.Name}): {value}");
+					}
+					catch (Exception ex)
+					{
+						GD.Print($"  - {field.Name} ({field.FieldType.Name}): <error: {ex.Message}>");
+					}
+				}
+ 
+				// Try multiple possible property names
+				string[] possibleNames = { "pck_name", "pckName", "PckName", "modName", "ModName", "name", "Name" };
+				foreach (var propName in possibleNames)
+				{
+					var property = modType.GetProperty(propName, bindingFlags);
+					if (property != null)
+					{
+						var value = property.GetValue(mod);
+						string valueStr = value?.ToString() ?? "";
+						GD.Print($"[ModSettingsUI] Found property '{propName}': {valueStr}");
+						if (valueStr.Contains("sts2decktracker") || valueStr.Contains("Slay the Spire 2 Deck Tracker"))
+						{
+							GD.Print($"[ModSettingsUI] Mod matched on property '{propName}'!");
+							return true;
+						}
+					}
+				}
+ 
+				// Try fields as well
+				foreach (var fieldName in possibleNames)
+				{
+					var field = modType.GetField(fieldName, bindingFlags);
+					if (field != null)
+					{
+						var value = field.GetValue(mod);
+						string valueStr = value?.ToString() ?? "";
+						GD.Print($"[ModSettingsUI] Found field '{fieldName}': {valueStr}");
+						if (valueStr.Contains("sts2decktracker") || valueStr.Contains("Slay the Spire 2 Deck Tracker"))
+						{
+							GD.Print($"[ModSettingsUI] Mod matched on field '{fieldName}'!");
+							return true;
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				GD.PrintErr($"[ModSettingsUI] Error checking mod: {ex.Message}");
+				GD.PrintErr($"[ModSettingsUI] Stack trace: {ex.StackTrace}");
+			}
+
+			return false;
+		}
+
+		private static object CreateSettingsPanel(object infoContainer)
+		{
+			// Get Godot types using reflection
+			var vboxType = AccessTools.TypeByName("Godot.VBoxContainer");
+			var hboxType = AccessTools.TypeByName("Godot.HBoxContainer");
+			var buttonType = AccessTools.TypeByName("Godot.Button");
+			var labelType = AccessTools.TypeByName("Godot.Label");
+			var scrollContainerType = AccessTools.TypeByName("Godot.ScrollContainer");
+			var stringNameType = AccessTools.TypeByName("Godot.StringName");
+
+			// Use the infoContainer directly as the target
+			object targetContainer = infoContainer;
+
+			// Create main VBoxContainer with absolute positioning
+			var mainPanel = Activator.CreateInstance(vboxType);
+			SetPosition(mainPanel, new Vector2(20, 100));
+			SetCustomMinimumSize(mainPanel, new Vector2(500, 400));
+			
+			// Add title
+			var titleLabel = Activator.CreateInstance(labelType);
+			SetText(titleLabel, "Deck Tracker Settings");
+			AddThemeFontSizeOverride(titleLabel, CreateStringName("font_size"), 18);
+			AddChild(mainPanel, titleLabel);
+
+			// Add spacing
+			AddChild(mainPanel, CreateSpacer(10));
+
+			// Draw Pile X Position
+			var drawXRow = CreateAdjustRow("Draw Pile X", () => _currentSettings.DrawPileX, (value) =>
+			{
+				_currentSettings.DrawPileX = value;
+			}, 10, -500, 500);
+			AddChild(mainPanel, drawXRow);
+
+			// Draw Pile Y Position
+			var drawYRow = CreateAdjustRow("Draw Pile Y", () => _currentSettings.DrawPileY, (value) =>
+			{
+				_currentSettings.DrawPileY = value;
+			}, 10, 0, 1000);
+			AddChild(mainPanel, drawYRow);
+
+			// Discard Pile X Position
+			var discardXRow = CreateAdjustRow("Discard Pile X", () => _currentSettings.DiscardPileX, (value) =>
+			{
+				_currentSettings.DiscardPileX = value;
+			}, 10, -1000, 500);
+			AddChild(mainPanel, discardXRow);
+
+			// Discard Pile Y Position
+			var discardYRow = CreateAdjustRow("Discard Pile Y", () => _currentSettings.DiscardPileY, (value) =>
+			{
+				_currentSettings.DiscardPileY = value;
+			}, 10, 0, 1000);
+			AddChild(mainPanel, discardYRow);
+
+			AddChild(mainPanel, CreateSpacer(5));
+
+			// Card Size (controls card height and all text sizes)
+			var cardSizeRow = CreateAdjustRow("Card Size", () => _currentSettings.CardSize, (value) =>
+			{
+				_currentSettings.CardSize = value;
+			}, 2, 12, 48);
+			AddChild(mainPanel, cardSizeRow);
+
+			AddChild(mainPanel, CreateSpacer(10));
+
+			// Apply button
+			var applyButton = Activator.CreateInstance(buttonType);
+			SetText(applyButton, "Apply Settings");
+			SetCustomMinimumSize(applyButton, new Vector2(200, 40));
+			ConnectPressed(applyButton, () =>
+			{
+				_currentSettings.Save();
+				DeckTrackerInjectionPatch.ApplySettings(_currentSettings);
+			});
+			AddChild(mainPanel, applyButton);
+
+			// Add panel to container
+			AddChild(targetContainer, mainPanel);
+
+			return mainPanel;
+		}
+
+		private static object CreateToggleRow(string labelText, Func<bool> getValue, Action<bool> setValue)
+		{
+			var hboxType = AccessTools.TypeByName("Godot.HBoxContainer");
+			var labelType = AccessTools.TypeByName("Godot.Label");
+			var buttonType = AccessTools.TypeByName("Godot.Button");
+
+			var row = Activator.CreateInstance(hboxType);
+
+			// Label
+			var label = Activator.CreateInstance(labelType);
+			SetText(label, labelText);
+			SetCustomMinimumSize(label, new Vector2(200, 0));
+			AddChild(row, label);
+
+			// Toggle button
+			var button = Activator.CreateInstance(buttonType);
+			SetText(button, getValue() ? "ON" : "OFF");
+			SetCustomMinimumSize(button, new Vector2(80, 0));
+			
+			ConnectPressed(button, () =>
+			{
+				bool newValue = !getValue();
+				setValue(newValue);
+				SetText(button, newValue ? "ON" : "OFF");
+			});
+
+			AddChild(row, button);
+
+			return row;
+		}
+
+		private static object CreateAdjustRow(string labelText, Func<int> getValue, Action<int> setValue, int step, int min, int max)
+		{
+			var hboxType = AccessTools.TypeByName("Godot.HBoxContainer");
+			var labelType = AccessTools.TypeByName("Godot.Label");
+			var buttonType = AccessTools.TypeByName("Godot.Button");
+
+			var row = Activator.CreateInstance(hboxType);
+
+			// Label
+			var label = Activator.CreateInstance(labelType);
+			SetText(label, labelText);
+			SetCustomMinimumSize(label, new Vector2(200, 0));
+			AddChild(row, label);
+
+			// Value button (declare before minus/plus buttons so it's in scope for lambdas)
+			var valueButton = Activator.CreateInstance(buttonType);
+			SetText(valueButton, getValue().ToString());
+			SetCustomMinimumSize(valueButton, new Vector2(60, 0));
+
+			// Minus button
+			var minusButton = Activator.CreateInstance(buttonType);
+			SetText(minusButton, "-");
+			SetCustomMinimumSize(minusButton, new Vector2(40, 0));
+			ConnectPressed(minusButton, () =>
+			{
+				int newValue = Math.Max(min, getValue() - step);
+				setValue(newValue);
+				SetText(valueButton, newValue.ToString());
+			});
+			AddChild(row, minusButton);
+
+			AddChild(row, valueButton);
+
+			// Plus button
+			var plusButton = Activator.CreateInstance(buttonType);
+			SetText(plusButton, "+");
+			SetCustomMinimumSize(plusButton, new Vector2(40, 0));
+			ConnectPressed(plusButton, () =>
+			{
+				int newValue = Math.Min(max, getValue() + step);
+				setValue(newValue);
+				SetText(valueButton, newValue.ToString());
+			});
+			AddChild(row, plusButton);
+
+			return row;
+		}
+
+		private static object CreateSpacer(int height)
+		{
+			var controlType = AccessTools.TypeByName("Godot.Control");
+			var spacer = Activator.CreateInstance(controlType);
+			SetCustomMinimumSize(spacer, new Vector2(0, height));
+			return spacer;
+		}
+
+		private static void UpdatePanelValues()
+		{
+			// Panel values are updated via button text in the callbacks
+		}
+
+		// Reflection helper methods
+		private static void SetText(object control, string text)
+		{
+			var textProperty = AccessTools.Property(control.GetType(), "Text");
+			textProperty?.SetValue(control, text);
+		}
+
+		private static void SetVisible(object control, bool visible)
+		{
+			if (control == null)
+			{
+				return;
+			}
+
+			try
+			{
+				var visibleProperty = AccessTools.Property(control.GetType(), "Visible");
+				if (visibleProperty != null && visibleProperty.CanWrite)
+				{
+					visibleProperty.SetValue(control, visible);
+				}
+			}
+			catch (Exception ex)
+			{
+				GD.PrintErr($"[ModSettingsUI] Failed to set visibility: {ex.Message}");
+			}
+		}
+
+		private static void SetCustomMinimumSize(object control, Vector2 size)
+		{
+			var sizeProperty = AccessTools.Property(control.GetType(), "CustomMinimumSize");
+			sizeProperty?.SetValue(control, size);
+		}
+
+		private static void SetPosition(object control, Vector2 position)
+		{
+			var positionProperty = AccessTools.Property(control.GetType(), "Position");
+			positionProperty?.SetValue(control, position);
+		}
+
+		private static void AddThemeFontSizeOverride(object control, object name, int size)
+		{
+			var method = AccessTools.Method(control.GetType(), "AddThemeFontSizeOverride");
+			method?.Invoke(control, new object[] { name, size });
+		}
+
+		private static void AddChild(object parent, object child)
+		{
+			var addChild = AccessTools.Method(parent.GetType(), "AddChild", new[] { child.GetType() })
+				?? parent.GetType()
+					.GetMethods(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public)
+					.FirstOrDefault(method =>
+						string.Equals(method.Name, "AddChild", StringComparison.Ordinal)
+						&& method.GetParameters().Length > 0);
+
+			if (addChild == null)
+			{
+				GD.PrintErr($"[ModSettingsUI] AddChild method not found on {parent.GetType().Name}");
+				return;
+			}
+
+			var parameters = addChild.GetParameters();
+			var args = new object[parameters.Length];
+			args[0] = child;
+			
+			// Fill optional parameters with defaults
+			for (var index = 1; index < parameters.Length; index++)
+			{
+				args[index] = parameters[index].HasDefaultValue
+					? parameters[index].DefaultValue
+					: parameters[index].ParameterType.IsValueType
+						? Activator.CreateInstance(parameters[index].ParameterType)
+						: null;
+			}
+
+			addChild.Invoke(parent, args);
+		}
+
+		private static void ConnectPressed(object button, Action callback)
+		{
+			var pressed = button.GetType().GetEvent("Pressed");
+			if (pressed == null || pressed.EventHandlerType == null)
+			{
+				GD.PrintErr($"[ModSettingsUI] Pressed event not found on {button.GetType().Name}");
+				return;
+			}
+
+			var delegateCallback = Delegate.CreateDelegate(pressed.EventHandlerType, callback.Target, callback.Method);
+			pressed.AddEventHandler(button, delegateCallback);
+		}
+
+		private static object CreateStringName(string text)
+		{
+			var stringNameType = AccessTools.TypeByName("Godot.StringName");
+			return Activator.CreateInstance(stringNameType, new object[] { text });
+		}
+
+		private static bool IsNodeValid(object node)
+		{
+			if (node == null)
+			{
+				return false;
+			}
+
+			try
+			{
+				// Check if the node has IsInsideTree method (Godot nodes)
+				var isInsideTreeMethod = node.GetType().GetMethod("IsInsideTree", BindingFlags.Instance | BindingFlags.Public);
+				if (isInsideTreeMethod != null)
+				{
+					var result = isInsideTreeMethod.Invoke(node, null);
+					return result is bool isInside && isInside;
+				}
+
+				// Fallback: assume valid if we can access a basic property
+				var nameProperty = AccessTools.Property(node.GetType(), "Name");
+				if (nameProperty != null)
+				{
+					var name = nameProperty.GetValue(node);
+					return name != null;
+				}
+
+				return true;
+			}
+			catch
+			{
+				return false;
+			}
+		}
+	}
+}

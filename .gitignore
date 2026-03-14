@@ -1,0 +1,7 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+
+# Godot UID files
+*.uid
+data_sts2mod test_windows_x86_64/*
