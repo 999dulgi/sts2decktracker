@@ -99,4 +99,22 @@ Slay the Spire 2 덱 트레커 모드입니다.
 ## References
 
 - https://github.com/jidon333/STS2_Superfast_Mod/tree/main/docs
-  이 저장소에 있는 자료에서 기초적인 정보를 얻었습니다
+  I referenced the information in this repository to get the basic information.
+
+## How to Build
+
+You can build this mod on Godot 4.5.1
+
+### Make DLL
+
+1. Open the project in Godot 4.5.1
+2. Go to Project -> Export
+3. Export the project
+4. Copy the generated DLL in the .godot/mono/temp/bin/Debug/sts2decktracker.dll
+
+### Make PCK
+
+1. Open the project in Godot 4.5.1
+2. Go to Project -> Export
+3. Select Resource - Export selected resources (and dependencies) and select mod\_,manifest.json and Export PCK/ZIP
+4. Copy the generated PCK in the project folder
