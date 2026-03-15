@@ -30,7 +30,10 @@ The config file will be created automatically on first run with default values.
   "drawPileY": 140,
   "discardPileX": -250,
   "discardPileY": 140,
-  "cardSize": 24
+  "cardSize": 24,
+  "idleOpacity": 0.3,
+  "activeOpacity": 1.0,
+  "idleDelaySeconds": 5.0
 }
 ```
 
@@ -39,6 +42,8 @@ The config file will be created automatically on first run with default values.
 - **drawPileX/drawPileY**: Position of the draw pile panel (X=0 is left edge, Y=140 is below top)
 - **discardPileX/discardPileY**: Position of the discard pile panel (negative X positions from right edge, position is based on basic card size)
 - **cardSize**: Size of each card in the deck tracker panels and all text sizes
+- **idleOpacity/activeOpacity**: Opacity of cards when they haven't changed and when they have changed (0.0 = fully transparent, 1.0 = fully opaque)
+- **idleDelaySeconds**: Delay in seconds before opacity changes after a card has been modified
 
 ### Cautions
 
@@ -81,7 +86,10 @@ Slay the Spire 2 덱 트레커 모드입니다.
   "drawPileY": 140,
   "discardPileX": -250,
   "discardPileY": 140,
-  "cardSize": 24
+  "cardSize": 24,
+  "idleOpacity": 0.3,
+  "activeOpacity": 1.0,
+  "idleDelaySeconds": 5.0
 }
 ```
 
@@ -90,6 +98,8 @@ Slay the Spire 2 덱 트레커 모드입니다.
 - **drawPileX/drawPileY**: 드로우 피일 패널의 위치 (X=0은 왼쪽 가장자리, Y=140은 상단 아래)
 - **discardPileX/discardPileY**: 디스카드 피일 패널의 위치 (음수 X 위치는 오른쪽 가장자리에서부터, 위치는 기본 카드 크기를 기준으로 합니다)
 - **cardSize**: 덱 트래커 패널의 각 카드 크기와 모든 텍스트 크기
+- **idleOpacity/activeOpacity**: 카드가 변경되지 않았을 때와 변경되었을 때의 투명도 (0.0 = 완전 투명, 1.0 = 완전 불투명)
+- **idleDelaySeconds**: 카드가 변경된 후 투명도가 변경되기까지의 대기 시간 (초)
 
 ### 주의사항
 
@@ -113,6 +123,8 @@ You can build this mod on Godot 4.5.1
 4. Copy the generated DLL in the .godot/mono/temp/bin/Debug/sts2decktracker.dll
 
 ### Make PCK
+
+in sts2 beta version, you don't need to make pck file. you can just copy the sts2decktracker_manifest.json and the dll file to the mods folder.
 
 1. Open the project in Godot 4.5.1
 2. Go to Project -> Export
