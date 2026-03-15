@@ -18,7 +18,7 @@ A mod that displays decktracker your draw pile and discard pile during combat.
 
 You can configure the mod in-game or manually edit the JSON file:
 
-**Location:** `[Game Install Directory]\mods\DeckTracker.config.json`
+**Location:** `%APPDATA%\SlaytheSpire2\DeckTracker.config.json`
 
 The config file will be created automatically on first run with default values.
 
@@ -74,7 +74,7 @@ Slay the Spire 2 덱 트레커 모드입니다.
 
 설정은 JSON 파일에 저장되며 인게임 또는 수동으로 편집할 수 있습니다:
 
-**위치:** `[게임 설치 디렉토리]\mods\DeckTracker.config.json`
+**위치:** `%APPDATA%\SlaytheSpire2\DeckTracker.config.json`
 
 설정 파일은 첫 실행 시 자동으로 생성되며 기본값으로 생성됩니다.
 
@@ -124,7 +124,7 @@ You can build this mod on Godot 4.5.1
 
 ### Make PCK
 
-in sts2 beta version, you don't need to make pck file. you can just copy the sts2decktracker_manifest.json and the dll file to the mods folder.
+In sts2 beta version, you don't need to make pck file. you can just copy the sts2decktracker_manifest.json and the dll file to the mods folder.
 
 1. Open the project in Godot 4.5.1
 2. Go to Project -> Export
