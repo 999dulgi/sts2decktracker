@@ -211,6 +211,29 @@ namespace sts2modtest
 			}, 2, 12, 48);
 			AddChild(mainPanel, cardSizeRow);
 
+			AddChild(mainPanel, CreateSpacer(5));
+
+			// Idle Opacity (transparency when no cards change) - displayed as percentage
+			var idleOpacityRow = CreateAdjustRow("Idle Opacity %", () => (int)(_currentSettings.IdleOpacity * 100), (value) =>
+			{
+				_currentSettings.IdleOpacity = value / 100f;
+			}, 10, 0, 100);
+			AddChild(mainPanel, idleOpacityRow);
+
+			// Active Opacity (opacity when cards are drawn/discarded) - displayed as percentage
+			var activeOpacityRow = CreateAdjustRow("Active Opacity %", () => (int)(_currentSettings.ActiveOpacity * 100), (value) =>
+			{
+				_currentSettings.ActiveOpacity = value / 100f;
+			}, 10, 0, 100);
+			AddChild(mainPanel, activeOpacityRow);
+
+			// Idle Delay (seconds to wait before fading to idle opacity) - displayed in seconds
+			var idleDelayRow = CreateAdjustRow("Fade Delay (sec)", () => (int)(_currentSettings.IdleDelaySeconds * 10), (value) =>
+			{
+				_currentSettings.IdleDelaySeconds = value / 10f;
+			}, 1, 0, 100, 10, "F1");
+			AddChild(mainPanel, idleDelayRow);
+
 			AddChild(mainPanel, CreateSpacer(10));
 
 			// Apply button
@@ -303,6 +326,54 @@ namespace sts2modtest
 				int newValue = Math.Min(max, getValue() + step);
 				setValue(newValue);
 				SetText(valueButton, newValue.ToString());
+			});
+			AddChild(row, plusButton);
+
+			return row;
+		}
+
+		private static object CreateAdjustRow(string labelText, Func<int> getValue, Action<int> setValue, int step, int min, int max, int divisor, string format = "F1")
+		{
+			var hboxType = AccessTools.TypeByName("Godot.HBoxContainer");
+			var labelType = AccessTools.TypeByName("Godot.Label");
+			var buttonType = AccessTools.TypeByName("Godot.Button");
+
+			var row = Activator.CreateInstance(hboxType);
+
+			// Label
+			var label = Activator.CreateInstance(labelType);
+			SetText(label, labelText);
+			SetCustomMinimumSize(label, new Vector2(200, 0));
+			AddChild(row, label);
+
+			// Value button (declare before minus/plus buttons so it's in scope for lambdas)
+			var valueButton = Activator.CreateInstance(buttonType);
+			SetText(valueButton, (getValue() / (float)divisor).ToString(format));
+			SetCustomMinimumSize(valueButton, new Vector2(60, 0));
+
+			// Minus button
+			var minusButton = Activator.CreateInstance(buttonType);
+			SetText(minusButton, "-");
+			SetCustomMinimumSize(minusButton, new Vector2(40, 0));
+			ConnectPressed(minusButton, () =>
+			{
+				int newValue = Math.Max(min, getValue() - step);
+				setValue(newValue);
+				SetText(valueButton, (newValue / (float)divisor).ToString(format));
+			});
+			AddChild(row, minusButton);
+
+			AddChild(row, valueButton);
+
+			// Plus button
+			var plusButton = Activator.CreateInstance(buttonType);
+			SetText(plusButton, "+");
+			SetCustomMinimumSize(plusButton, new Vector2(40, 0));
+			ConnectPressed(plusButton, () =>
+			{
+				int newValue = Math.Min(max, getValue() + step);
+				setValue(newValue);
+				SetText(valueButton, (newValue / (float)divisor).ToString(format));
 			});
 			AddChild(row, plusButton);
 

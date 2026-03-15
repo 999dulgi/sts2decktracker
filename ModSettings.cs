@@ -6,7 +6,7 @@ namespace sts2modtest
 {
 	/// <summary>
 	/// Deck Tracker mod settings - Edit the JSON config file to customize
-	/// Config file location: [Game Install]/mods/DeckTracker.config.json
+	/// Config file location: %APPDATA%/Roaming/SlaytheSpire2/DeckTracker.config.json
 	/// 
 	/// Available settings:
 	/// - panelWidth/panelHeight: Size of deck tracker panels (default: 250x400)
@@ -33,6 +33,16 @@ namespace sts2modtest
 		[System.Text.Json.Serialization.JsonPropertyName("cardSize")]
 		public int CardSize { get; set; } = 24;
 		
+		// Transparency settings
+		[System.Text.Json.Serialization.JsonPropertyName("idleOpacity")]
+		public float IdleOpacity { get; set; } = 0.3f;  // Semi-transparent when idle (0.0 = fully transparent, 1.0 = fully opaque)
+		
+		[System.Text.Json.Serialization.JsonPropertyName("activeOpacity")]
+		public float ActiveOpacity { get; set; } = 1.0f;  // Fully opaque when cards are drawn
+		
+		[System.Text.Json.Serialization.JsonPropertyName("idleDelaySeconds")]
+		public float IdleDelaySeconds { get; set; } = 2.0f;  // Seconds to wait before fading to idle opacity
+		
 		// Computed properties based on CardSize - everything scales automatically
 		public int PanelWidth => CardSize * 11 + 8;  // Panel width scales with card size (24 -> 240px)
 		public int PanelHeight => CardSize * 20;  // Panel height scales with card size (24 -> 480px)
@@ -45,7 +55,8 @@ namespace sts2modtest
 		public int CostIconSize => CardSize + 8;  // Cost icon size matches card size
 
 		private static readonly string ConfigPath = Path.Combine(
-			Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) ?? "",
+			Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+			"SlaytheSpire2",
 			"DeckTracker.config.json"
 		);
 
@@ -99,7 +110,10 @@ namespace sts2modtest
 					drawPileY = DrawPileY,
 					discardPileX = DiscardPileX,
 					discardPileY = DiscardPileY,
-					cardSize = CardSize
+					cardSize = CardSize,
+					idleOpacity = IdleOpacity,
+					activeOpacity = ActiveOpacity,
+					idleDelaySeconds = IdleDelaySeconds
 				};
 
 				var options = new JsonSerializerOptions { WriteIndented = true };

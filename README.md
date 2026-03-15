@@ -116,5 +116,5 @@ You can build this mod on Godot 4.5.1
 
 1. Open the project in Godot 4.5.1
 2. Go to Project -> Export
-3. Select Resource - Export selected resources (and dependencies) and select mod\_,manifest.json and Export PCK/ZIP
+3. Select Resource - Export selected resources (and dependencies) and select mod_manifest.json and Export PCK/ZIP
 4. Copy the generated PCK in the project folder

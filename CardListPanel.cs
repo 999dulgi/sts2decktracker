@@ -20,6 +20,11 @@ namespace sts2modtest
 		private ModSettings _settings;
 		private System.Collections.Generic.List<(CardModel card, int count)> _shuffledOrder = null;
 		private System.Collections.Generic.HashSet<string> _lastCardKeys = new System.Collections.Generic.HashSet<string>();
+		private float _targetOpacity = 0.3f;
+		private float _currentOpacity = 0.3f;
+		private const float OpacityTransitionSpeed = 5.0f;
+		private float _timeSinceLastChange = 0f;
+		private float _idleDelaySeconds = 2.0f;
 
 		public void SetPileType(PileType pileType)
 		{
@@ -31,6 +36,11 @@ namespace sts2modtest
 			_settings = settings;
 			// Force refresh to apply new settings
 			_lastCardCount = -1;
+			// Set initial opacity to idle state
+			_targetOpacity = settings?.IdleOpacity ?? 0.3f;
+			_currentOpacity = _targetOpacity;
+			_idleDelaySeconds = settings?.IdleDelaySeconds ?? 2.0f;
+			Modulate = new Color(1, 1, 1, _currentOpacity);
 		}
 
 	public override void _Ready()
@@ -76,6 +86,13 @@ namespace sts2modtest
 
 	public override void _Process(double delta)
 	{
+		// Smoothly transition opacity
+		if (Math.Abs(_currentOpacity - _targetOpacity) > 0.01f)
+		{
+			_currentOpacity = Mathf.Lerp(_currentOpacity, _targetOpacity, OpacityTransitionSpeed * (float)delta);
+			Modulate = new Color(1, 1, 1, _currentOpacity);
+		}
+
 		// Check if combat is active
 		if (CombatManager.Instance == null || !CombatManager.Instance.IsInProgress)
 		{
@@ -127,6 +144,20 @@ namespace sts2modtest
 		{
 			_lastCardCount = currentCount;
 			UpdateCardList(_cardList, pile);
+			// Set to active opacity when cards change
+			_targetOpacity = _settings?.ActiveOpacity ?? 1.0f;
+			_timeSinceLastChange = 0f;
+		}
+		else
+		{
+			// Track time since last change
+			_timeSinceLastChange += (float)delta;
+			
+			// Return to idle opacity after delay or when pile is empty
+			if (_timeSinceLastChange >= _idleDelaySeconds || currentCount == 0)
+			{
+				_targetOpacity = _settings?.IdleOpacity ?? 0.3f;
+			}
 		}
 	}
 
