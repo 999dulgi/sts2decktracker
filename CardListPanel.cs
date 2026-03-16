@@ -6,6 +6,7 @@ using MegaCrit.Sts2.Core.Models;
 using MegaCrit.Sts2.Core.Localization.Fonts;
 using MegaCrit.Sts2.Core.Helpers;
 using MegaCrit.Sts2.Core.Helpers.Models;
+using MegaCrit.Sts2.Core.Context;
 
 namespace sts2decktracker
 {
@@ -24,6 +25,7 @@ namespace sts2decktracker
 		private float _idleDelaySeconds = 2.0f;
 		private CardPile _currentPile = null;
 		private bool _shouldShuffleOnNextUpdate = false;
+		private MegaCrit.Sts2.Core.Entities.Players.Player _currentPlayer = null;
 		
 		public void SetPileType(PileType pileType)
 		{
@@ -116,26 +118,29 @@ namespace sts2decktracker
 				_currentPile.ContentsChanged -= OnPileContentsChanged;
 				_currentPile = null;
 			}
+			_currentPlayer = null;
 			_combatStartLogged = false;
 			return;
 		}
 
-		// Get the combat state
-		var combatState = CombatManager.Instance.DebugOnlyGetState();
-		if (combatState == null)
+		// Get player once at combat start
+		if (_currentPlayer == null)
 		{
-			return;
+			var combatState = CombatManager.Instance.DebugOnlyGetState();
+			if (combatState == null)
+			{
+				return;
+			}
+
+			_currentPlayer = LocalContext.GetMe(combatState);
+			if (_currentPlayer?.PlayerCombatState == null)
+			{
+				return;
+			}
 		}
 
-		// Get the first player
-		var player = combatState.Players[0];
-		if (player?.PlayerCombatState == null)
-		{
-			return;
-		}
-
-		// Get draw pile
-		var drawPile = player.PlayerCombatState.DrawPile;
+		// Use cached player
+		var drawPile = _currentPlayer.PlayerCombatState.DrawPile;
 		if (drawPile == null)
 		{
 			if (!_combatStartLogged)
@@ -147,7 +152,7 @@ namespace sts2decktracker
 		}
 
 		// Get the appropriate pile based on type
-		var pile = _pileType == PileType.Draw ? drawPile : player.PlayerCombatState.DiscardPile;
+		var pile = _pileType == PileType.Draw ? drawPile : _currentPlayer.PlayerCombatState.DiscardPile;
 		if (pile == null)
 		{
 			return;
