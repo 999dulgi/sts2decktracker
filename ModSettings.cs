@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Text.Json;
 
-namespace sts2modtest
+namespace sts2decktracker
 {
 	/// <summary>
 	/// Deck Tracker mod settings - Edit the JSON config file to customize

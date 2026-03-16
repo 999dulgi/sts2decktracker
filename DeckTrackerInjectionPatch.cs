@@ -2,8 +2,10 @@ using HarmonyLib;
 using Godot;
 using MegaCrit.Sts2.Core.Nodes.Combat;
 using MegaCrit.Sts2.Core.Entities.Cards;
+using MegaCrit.Sts2.Core.Commands;
+using MegaCrit.Sts2.Core.Entities.Players;
 
-namespace sts2modtest
+namespace sts2decktracker
 {
 	[HarmonyPatch(typeof(NCombatUi), nameof(NCombatUi._Ready))]
 	public static class DeckTrackerInjectionPatch
@@ -143,20 +145,26 @@ namespace sts2modtest
 		static void Postfix(object __instance, object mod)
 		{
 			try
-			{
-				GD.Print($"[ModdingScreenSettingsPatch] Postfix called!");
-				GD.Print($"[ModdingScreenSettingsPatch] __instance type: {__instance?.GetType().Name ?? "null"}");
-				GD.Print($"[ModdingScreenSettingsPatch] mod type: {mod?.GetType().Name ?? "null"}");
-				
+			{				
 				ModSettingsUI.RefreshForSelection(__instance, mod);
-				
-				GD.Print($"[ModdingScreenSettingsPatch] RefreshForSelection completed");
 			}
 			catch (System.Exception ex)
 			{
 				GD.PrintErr($"[ModdingScreenSettingsPatch] Failed to inject settings UI: {ex.Message}");
 				GD.PrintErr($"[ModdingScreenSettingsPatch] Stack trace: {ex.StackTrace}");
 			}
+		}
+	}
+
+	// Detect when Shuffle is called
+	[HarmonyPatch(typeof(CardPileCmd), nameof(CardPileCmd.Shuffle))]
+	public static class ShuffleDetectionPatch
+	{
+		public static event System.Action<Player> OnShuffleDetected;
+
+		public static void Prefix(Player player)
+		{
+			OnShuffleDetected?.Invoke(player);
 		}
 	}
 }

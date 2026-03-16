@@ -1,6 +1,5 @@
 using Godot;
 using System;
-using System.Linq;
 using MegaCrit.Sts2.Core.Combat;
 using MegaCrit.Sts2.Core.Entities.Cards;
 using MegaCrit.Sts2.Core.Models;
@@ -8,24 +7,24 @@ using MegaCrit.Sts2.Core.Localization.Fonts;
 using MegaCrit.Sts2.Core.Helpers;
 using MegaCrit.Sts2.Core.Helpers.Models;
 
-namespace sts2modtest
+namespace sts2decktracker
 {
 	public partial class CardListPanel : Panel
 	{
 		private VBoxContainer _cardList;
 		private Label _titleLabel;
-		private int _lastCardCount = -1;
 		private bool _combatStartLogged = false;
 		private PileType _pileType = PileType.Draw;
 		private ModSettings _settings;
 		private System.Collections.Generic.List<(CardModel card, int count)> _shuffledOrder = null;
-		private System.Collections.Generic.HashSet<string> _lastCardKeys = new System.Collections.Generic.HashSet<string>();
 		private float _targetOpacity = 0.3f;
 		private float _currentOpacity = 0.3f;
 		private const float OpacityTransitionSpeed = 5.0f;
 		private float _timeSinceLastChange = 0f;
 		private float _idleDelaySeconds = 2.0f;
-
+		private CardPile _currentPile = null;
+		private bool _shouldShuffleOnNextUpdate = false;
+		
 		public void SetPileType(PileType pileType)
 		{
 			_pileType = pileType;
@@ -34,8 +33,6 @@ namespace sts2modtest
 		public void SetSettings(ModSettings settings)
 		{
 			_settings = settings;
-			// Force refresh to apply new settings
-			_lastCardCount = -1;
 			// Set initial opacity to idle state
 			_targetOpacity = settings?.IdleOpacity ?? 0.3f;
 			_currentOpacity = _targetOpacity;
@@ -70,7 +67,7 @@ namespace sts2modtest
 		var innerContainer = new VBoxContainer();
 		innerContainer.AddThemeConstantOverride("separation", 8);
 		marginContainer.AddChild(innerContainer);
-		
+	
 		_cardList = new VBoxContainer
 		{
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
@@ -79,9 +76,26 @@ namespace sts2modtest
 		};
 		_cardList.AddThemeConstantOverride("separation", 3);
 		innerContainer.AddChild(_cardList);
-		
-		// Force initial update
-		_lastCardCount = -1;
+	
+		// Subscribe to shuffle detection event
+		ShuffleDetectionPatch.OnShuffleDetected += OnShuffleDetected;
+	}
+
+	private void OnShuffleDetected(MegaCrit.Sts2.Core.Entities.Players.Player player)
+	{
+		// Mark that we should shuffle on next update
+		_shouldShuffleOnNextUpdate = true;
+	}
+
+	private void OnPileContentsChanged()
+	{
+		if (_currentPile != null)
+		{
+			UpdateCardList(_cardList, _currentPile);
+			// Set to active opacity when cards change
+			_targetOpacity = _settings?.ActiveOpacity ?? 1.0f;
+			_timeSinceLastChange = 0f;
+		}
 	}
 
 	public override void _Process(double delta)
@@ -96,6 +110,12 @@ namespace sts2modtest
 		// Check if combat is active
 		if (CombatManager.Instance == null || !CombatManager.Instance.IsInProgress)
 		{
+			// Unsubscribe from pile events when combat ends
+			if (_currentPile != null)
+			{
+				_currentPile.ContentsChanged -= OnPileContentsChanged;
+				_currentPile = null;
+			}
 			_combatStartLogged = false;
 			return;
 		}
@@ -138,26 +158,28 @@ namespace sts2modtest
 			_combatStartLogged = true;
 		}
 
-		// Only update if card count changed
-		int currentCount = pile.Cards.Count;
-		if (currentCount != _lastCardCount)
+		// Subscribe to pile events if not already subscribed
+		if (_currentPile != pile)
 		{
-			_lastCardCount = currentCount;
-			UpdateCardList(_cardList, pile);
-			// Set to active opacity when cards change
-			_targetOpacity = _settings?.ActiveOpacity ?? 1.0f;
-			_timeSinceLastChange = 0f;
-		}
-		else
-		{
-			// Track time since last change
-			_timeSinceLastChange += (float)delta;
-			
-			// Return to idle opacity after delay or when pile is empty
-			if (_timeSinceLastChange >= _idleDelaySeconds || currentCount == 0)
+			// Unsubscribe from old pile
+			if (_currentPile != null)
 			{
-				_targetOpacity = _settings?.IdleOpacity ?? 0.3f;
+				_currentPile.ContentsChanged -= OnPileContentsChanged;
 			}
+			
+			// Subscribe to new pile
+			_currentPile = pile;
+			_currentPile.ContentsChanged += OnPileContentsChanged;
+			
+			// Initial update
+			UpdateCardList(_cardList, _currentPile);
+		}
+
+		// Track time since last change for idle opacity
+		_timeSinceLastChange += (float)delta;
+		if (_timeSinceLastChange >= _idleDelaySeconds || (_currentPile != null && _currentPile.IsEmpty))
+		{
+			_targetOpacity = _settings?.IdleOpacity ?? 0.3f;
 		}
 	}
 
@@ -202,31 +224,54 @@ namespace sts2modtest
 			}
 		}
 
-		// Check if card composition changed (new cycle or cards added/removed)
-		bool compositionChanged = !currentCardKeys.SetEquals(_lastCardKeys);
-		
 		System.Collections.Generic.List<(CardModel card, int count)> displayGroups;
+	
+	// Only shuffle if Shuffle command was called
+	if (_shouldShuffleOnNextUpdate)
+	{
+		// Shuffle and save new order
+		displayGroups = [.. cardGroups.Values];
+		var random = new System.Random();
+		for (int i = displayGroups.Count - 1; i > 0; i--)
+		{
+			int j = random.Next(i + 1);
+			var temp = displayGroups[i];
+			displayGroups[i] = displayGroups[j];
+			displayGroups[j] = temp;
+		}
+		_shuffledOrder = displayGroups;
+		_shouldShuffleOnNextUpdate = false; // Reset flag
+	}
+	else if (_shuffledOrder != null)
+	{
+		// No shuffle - update counts and add new cards to existing order
+		displayGroups = new System.Collections.Generic.List<(CardModel card, int count)>();
 		
-		if (compositionChanged || _shuffledOrder == null)
+		// First, add existing cards in their current order
+		foreach (var oldGroup in _shuffledOrder)
 		{
-			// Composition changed - shuffle and save new order
-			displayGroups = cardGroups.Values.ToList();
-			var random = new System.Random();
-			for (int i = displayGroups.Count - 1; i > 0; i--)
+			string key = $"{oldGroup.card.Title}|{oldGroup.card.IsUpgraded}|{(oldGroup.card.Enchantment != null ? oldGroup.card.Enchantment.GetType().Name : "none")}";
+			if (cardGroups.TryGetValue(key, out var newGroup))
 			{
-				int j = random.Next(i + 1);
-				var temp = displayGroups[i];
-				displayGroups[i] = displayGroups[j];
-				displayGroups[j] = temp;
+				displayGroups.Add(newGroup);
+				cardGroups.Remove(key); // Remove so we can track new cards
 			}
-			_shuffledOrder = displayGroups;
-			_lastCardKeys = currentCardKeys;
 		}
-		else
+		
+		// Then, add any new cards at the end
+		foreach (var newCard in cardGroups.Values)
 		{
-			// Same composition - use saved order
-			displayGroups = _shuffledOrder;
+			displayGroups.Add(newCard);
 		}
+		
+		_shuffledOrder = displayGroups;
+	}
+	else
+	{
+		// First time - just use current order without shuffling
+		displayGroups = [.. cardGroups.Values];
+		_shuffledOrder = displayGroups;
+	}
 
 		// Display unique cards with count
 		foreach (var group in displayGroups)
@@ -581,5 +626,6 @@ namespace sts2modtest
 			_ => StsColors.cardTitleOutlineCommon
 		};
 	}
+
 	}
 }

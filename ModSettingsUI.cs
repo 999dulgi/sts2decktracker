@@ -4,7 +4,7 @@ using System.Reflection;
 using HarmonyLib;
 using Godot;
 
-namespace sts2modtest
+namespace sts2decktracker
 {
 	/// <summary>
 	/// Handles in-game settings UI injection into the Modding Screen
