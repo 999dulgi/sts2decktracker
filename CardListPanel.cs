@@ -24,7 +24,6 @@ namespace sts2decktracker
 		private float _timeSinceLastChange = 0f;
 		private float _idleDelaySeconds = 2.0f;
 		private CardPile _currentPile = null;
-		private bool _shouldShuffleOnNextUpdate = false;
 		private MegaCrit.Sts2.Core.Entities.Players.Player _currentPlayer = null;
 		
 		public void SetPileType(PileType pileType)
@@ -78,15 +77,6 @@ namespace sts2decktracker
 		};
 		_cardList.AddThemeConstantOverride("separation", 3);
 		innerContainer.AddChild(_cardList);
-	
-		// Subscribe to shuffle detection event
-		ShuffleDetectionPatch.OnShuffleDetected += OnShuffleDetected;
-	}
-
-	private void OnShuffleDetected(MegaCrit.Sts2.Core.Entities.Players.Player player)
-	{
-		// Mark that we should shuffle on next update
-		_shouldShuffleOnNextUpdate = true;
 	}
 
 	private void OnPileContentsChanged()
@@ -231,11 +221,11 @@ namespace sts2decktracker
 
 		System.Collections.Generic.List<(CardModel card, int count)> displayGroups;
 	
-	// Only shuffle if Shuffle command was called
-	if (_shouldShuffleOnNextUpdate)
+	// Determine display order
+	if (_shuffledOrder == null || _shuffledOrder.Count == 0)
 	{
-		// Shuffle and save new order
-		displayGroups = [.. cardGroups.Values];
+		// First time - shuffle the cards
+		displayGroups = new System.Collections.Generic.List<(CardModel card, int count)>(cardGroups.Values);
 		var random = new System.Random();
 		for (int i = displayGroups.Count - 1; i > 0; i--)
 		{
@@ -245,36 +235,36 @@ namespace sts2decktracker
 			displayGroups[j] = temp;
 		}
 		_shuffledOrder = displayGroups;
-		_shouldShuffleOnNextUpdate = false; // Reset flag
 	}
-	else if (_shuffledOrder != null)
+	else
 	{
-		// No shuffle - update counts and add new cards to existing order
+		// Maintain shuffled order, just update counts (keep positions even if count is 0)
 		displayGroups = new System.Collections.Generic.List<(CardModel card, int count)>();
+		var remainingCards = new System.Collections.Generic.Dictionary<string, (CardModel card, int count)>(cardGroups);
 		
-		// First, add existing cards in their current order
+		// Keep cards in their shuffled order with updated counts
 		foreach (var oldGroup in _shuffledOrder)
 		{
 			string key = $"{oldGroup.card.Title}|{oldGroup.card.IsUpgraded}|{(oldGroup.card.Enchantment != null ? oldGroup.card.Enchantment.GetType().Name : "none")}";
-			if (cardGroups.TryGetValue(key, out var newGroup))
+			if (remainingCards.TryGetValue(key, out var newGroup))
 			{
+				// Card still exists - use updated count
 				displayGroups.Add(newGroup);
-				cardGroups.Remove(key); // Remove so we can track new cards
+				remainingCards.Remove(key);
+			}
+			else
+			{
+				// Card no longer in pile - keep position with count 0
+				displayGroups.Add((oldGroup.card, 0));
 			}
 		}
 		
-		// Then, add any new cards at the end
-		foreach (var newCard in cardGroups.Values)
+		// Add any new cards at the end
+		foreach (var newCard in remainingCards.Values)
 		{
 			displayGroups.Add(newCard);
 		}
 		
-		_shuffledOrder = displayGroups;
-	}
-	else
-	{
-		// First time - just use current order without shuffling
-		displayGroups = [.. cardGroups.Values];
 		_shuffledOrder = displayGroups;
 	}
 
@@ -283,6 +273,13 @@ namespace sts2decktracker
 		{
 			var card = group.card;
 			var count = group.count;
+			
+			// Skip cards with count 0
+			if (count == 0)
+			{
+				continue;
+			}
+			
 			try
 			{
 				// Get card portrait texture

@@ -155,16 +155,4 @@ namespace sts2decktracker
 			}
 		}
 	}
-
-	// Detect when Shuffle is called
-	[HarmonyPatch(typeof(CardPileCmd), nameof(CardPileCmd.Shuffle))]
-	public static class ShuffleDetectionPatch
-	{
-		public static event System.Action<Player> OnShuffleDetected;
-
-		public static void Prefix(Player player)
-		{
-			OnShuffleDetected?.Invoke(player);
-		}
-	}
 }
