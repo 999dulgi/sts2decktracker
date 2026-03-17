@@ -13,6 +13,7 @@ namespace sts2decktracker
 	{
 		private static object _currentPanel = null;
 		private static ModSettings _currentSettings = null;
+		private static System.Collections.Generic.Dictionary<string, object> _uiElements = new System.Collections.Generic.Dictionary<string, object>();
 
 		/// <summary>
 		/// Called when a mod is selected in the Modding Screen
@@ -178,28 +179,28 @@ namespace sts2decktracker
 			var drawXRow = CreateAdjustRow("Draw Pile X", () => _currentSettings.DrawPileX, (value) =>
 			{
 				_currentSettings.DrawPileX = value;
-			}, 10, -500, 500);
+			}, 1, -500, 500, "drawX_input");
 			AddChild(mainPanel, drawXRow);
 
 			// Draw Pile Y Position
 			var drawYRow = CreateAdjustRow("Draw Pile Y", () => _currentSettings.DrawPileY, (value) =>
 			{
 				_currentSettings.DrawPileY = value;
-			}, 10, 0, 1000);
+			}, 1, -500, 500, "drawY_input");
 			AddChild(mainPanel, drawYRow);
 
 			// Discard Pile X Position
 			var discardXRow = CreateAdjustRow("Discard Pile X", () => _currentSettings.DiscardPileX, (value) =>
 			{
 				_currentSettings.DiscardPileX = value;
-			}, 10, -1000, 500);
+			}, 1, -500, 500, "discardX_input");
 			AddChild(mainPanel, discardXRow);
 
 			// Discard Pile Y Position
 			var discardYRow = CreateAdjustRow("Discard Pile Y", () => _currentSettings.DiscardPileY, (value) =>
 			{
 				_currentSettings.DiscardPileY = value;
-			}, 10, 0, 1000);
+			}, 1, -500, 500, "discardY_input");
 			AddChild(mainPanel, discardYRow);
 
 			AddChild(mainPanel, CreateSpacer(5));
@@ -208,7 +209,7 @@ namespace sts2decktracker
 			var cardSizeRow = CreateAdjustRow("Card Size", () => _currentSettings.CardSize, (value) =>
 			{
 				_currentSettings.CardSize = value;
-			}, 2, 12, 48);
+			}, 2, 12, 48, "cardSize_input");
 			AddChild(mainPanel, cardSizeRow);
 
 			AddChild(mainPanel, CreateSpacer(5));
@@ -217,21 +218,21 @@ namespace sts2decktracker
 			var idleOpacityRow = CreateAdjustRow("Idle Opacity %", () => (int)(_currentSettings.IdleOpacity * 100), (value) =>
 			{
 				_currentSettings.IdleOpacity = value / 100f;
-			}, 10, 0, 100);
+			}, 1, 0, 100, "idleOpacity_input");
 			AddChild(mainPanel, idleOpacityRow);
 
 			// Active Opacity (opacity when cards are drawn/discarded) - displayed as percentage
 			var activeOpacityRow = CreateAdjustRow("Active Opacity %", () => (int)(_currentSettings.ActiveOpacity * 100), (value) =>
 			{
 				_currentSettings.ActiveOpacity = value / 100f;
-			}, 10, 0, 100);
+			}, 1, 0, 100, "activeOpacity_input");
 			AddChild(mainPanel, activeOpacityRow);
 
 			// Idle Delay (seconds to wait before fading to idle opacity) - displayed in seconds
 			var idleDelayRow = CreateAdjustRow("Fade Delay (sec)", () => (int)(_currentSettings.IdleDelaySeconds * 10), (value) =>
 			{
 				_currentSettings.IdleDelaySeconds = value / 10f;
-			}, 1, 0, 100, 10, "F1");
+			}, 1, 0, 100, 10, "F1", "idleDelay_input");
 			AddChild(mainPanel, idleDelayRow);
 
 			AddChild(mainPanel, CreateSpacer(10));
@@ -246,6 +247,18 @@ namespace sts2decktracker
 				DeckTrackerInjectionPatch.ApplySettings(_currentSettings);
 			});
 			AddChild(mainPanel, applyButton);
+
+			var resetButton = Activator.CreateInstance(buttonType);
+			SetText(resetButton, "Reset to Defaults");
+			SetCustomMinimumSize(resetButton, new Vector2(200, 40));
+			ConnectPressed(resetButton, () =>
+			{
+				_currentSettings.ResetToDefaults();
+				_currentSettings.Save();
+				DeckTrackerInjectionPatch.ApplySettings(_currentSettings);
+				UpdatePanelValues();
+			});
+			AddChild(mainPanel, resetButton);
 
 			// Add panel to container
 			AddChild(targetContainer, mainPanel);
@@ -284,11 +297,12 @@ namespace sts2decktracker
 			return row;
 		}
 
-		private static object CreateAdjustRow(string labelText, Func<int> getValue, Action<int> setValue, int step, int min, int max)
+		private static object CreateAdjustRow(string labelText, Func<int> getValue, Action<int> setValue, int step, int min, int max, string uiKey = null)
 		{
 			var hboxType = AccessTools.TypeByName("Godot.HBoxContainer");
 			var labelType = AccessTools.TypeByName("Godot.Label");
 			var buttonType = AccessTools.TypeByName("Godot.Button");
+			var lineEditType = AccessTools.TypeByName("Godot.LineEdit");
 
 			var row = Activator.CreateInstance(hboxType);
 
@@ -298,10 +312,31 @@ namespace sts2decktracker
 			SetCustomMinimumSize(label, new Vector2(200, 0));
 			AddChild(row, label);
 
-			// Value button (declare before minus/plus buttons so it's in scope for lambdas)
-			var valueButton = Activator.CreateInstance(buttonType);
-			SetText(valueButton, getValue().ToString());
-			SetCustomMinimumSize(valueButton, new Vector2(60, 0));
+			// LineEdit for direct input
+			var lineEdit = Activator.CreateInstance(lineEditType);
+			SetText(lineEdit, getValue().ToString());
+			SetCustomMinimumSize(lineEdit, new Vector2(60, 0));
+			
+			// Store in dictionary if key provided
+			if (!string.IsNullOrEmpty(uiKey))
+			{
+				_uiElements[uiKey] = lineEdit;
+			}
+			
+			// Connect text submitted event
+			ConnectTextSubmitted(lineEdit, (text) =>
+			{
+				if (int.TryParse(text, out int newValue))
+				{
+					newValue = Math.Clamp(newValue, min, max);
+					setValue(newValue);
+					SetText(lineEdit, newValue.ToString());
+				}
+				else
+				{
+					SetText(lineEdit, getValue().ToString());
+				}
+			});
 
 			// Minus button
 			var minusButton = Activator.CreateInstance(buttonType);
@@ -311,11 +346,11 @@ namespace sts2decktracker
 			{
 				int newValue = Math.Max(min, getValue() - step);
 				setValue(newValue);
-				SetText(valueButton, newValue.ToString());
+				SetText(lineEdit, newValue.ToString());
 			});
 			AddChild(row, minusButton);
 
-			AddChild(row, valueButton);
+			AddChild(row, lineEdit);
 
 			// Plus button
 			var plusButton = Activator.CreateInstance(buttonType);
@@ -325,18 +360,19 @@ namespace sts2decktracker
 			{
 				int newValue = Math.Min(max, getValue() + step);
 				setValue(newValue);
-				SetText(valueButton, newValue.ToString());
+				SetText(lineEdit, newValue.ToString());
 			});
 			AddChild(row, plusButton);
 
 			return row;
 		}
 
-		private static object CreateAdjustRow(string labelText, Func<int> getValue, Action<int> setValue, int step, int min, int max, int divisor, string format = "F1")
+		private static object CreateAdjustRow(string labelText, Func<int> getValue, Action<int> setValue, int step, int min, int max, int divisor, string format = "F1", string uiKey = null)
 		{
 			var hboxType = AccessTools.TypeByName("Godot.HBoxContainer");
 			var labelType = AccessTools.TypeByName("Godot.Label");
 			var buttonType = AccessTools.TypeByName("Godot.Button");
+			var lineEditType = AccessTools.TypeByName("Godot.LineEdit");
 
 			var row = Activator.CreateInstance(hboxType);
 
@@ -346,10 +382,32 @@ namespace sts2decktracker
 			SetCustomMinimumSize(label, new Vector2(200, 0));
 			AddChild(row, label);
 
-			// Value button (declare before minus/plus buttons so it's in scope for lambdas)
-			var valueButton = Activator.CreateInstance(buttonType);
-			SetText(valueButton, (getValue() / (float)divisor).ToString(format));
-			SetCustomMinimumSize(valueButton, new Vector2(60, 0));
+			// LineEdit for direct input
+			var lineEdit = Activator.CreateInstance(lineEditType);
+			SetText(lineEdit, (getValue() / (float)divisor).ToString(format));
+			SetCustomMinimumSize(lineEdit, new Vector2(60, 0));
+			
+			// Store in dictionary if key provided
+			if (!string.IsNullOrEmpty(uiKey))
+			{
+				_uiElements[uiKey] = lineEdit;
+			}
+			
+			// Connect text submitted event
+			ConnectTextSubmitted(lineEdit, (text) =>
+			{
+				if (float.TryParse(text, out float floatValue))
+				{
+					int newValue = (int)(floatValue * divisor);
+					newValue = Math.Clamp(newValue, min, max);
+					setValue(newValue);
+					SetText(lineEdit, (newValue / (float)divisor).ToString(format));
+				}
+				else
+				{
+					SetText(lineEdit, (getValue() / (float)divisor).ToString(format));
+				}
+			});
 
 			// Minus button
 			var minusButton = Activator.CreateInstance(buttonType);
@@ -359,11 +417,11 @@ namespace sts2decktracker
 			{
 				int newValue = Math.Max(min, getValue() - step);
 				setValue(newValue);
-				SetText(valueButton, (newValue / (float)divisor).ToString(format));
+				SetText(lineEdit, (newValue / (float)divisor).ToString(format));
 			});
 			AddChild(row, minusButton);
 
-			AddChild(row, valueButton);
+			AddChild(row, lineEdit);
 
 			// Plus button
 			var plusButton = Activator.CreateInstance(buttonType);
@@ -373,7 +431,7 @@ namespace sts2decktracker
 			{
 				int newValue = Math.Min(max, getValue() + step);
 				setValue(newValue);
-				SetText(valueButton, (newValue / (float)divisor).ToString(format));
+				SetText(lineEdit, (newValue / (float)divisor).ToString(format));
 			});
 			AddChild(row, plusButton);
 
@@ -390,7 +448,23 @@ namespace sts2decktracker
 
 		private static void UpdatePanelValues()
 		{
-			// Panel values are updated via button text in the callbacks
+			// Update all UI elements with current settings values
+			if (_uiElements.TryGetValue("drawX_input", out var drawXInput))
+				SetText(drawXInput, _currentSettings.DrawPileX.ToString());
+			if (_uiElements.TryGetValue("drawY_input", out var drawYInput))
+				SetText(drawYInput, _currentSettings.DrawPileY.ToString());
+			if (_uiElements.TryGetValue("discardX_input", out var discardXInput))
+				SetText(discardXInput, _currentSettings.DiscardPileX.ToString());
+			if (_uiElements.TryGetValue("discardY_input", out var discardYInput))
+				SetText(discardYInput, _currentSettings.DiscardPileY.ToString());
+			if (_uiElements.TryGetValue("cardSize_input", out var cardSizeInput))
+				SetText(cardSizeInput, _currentSettings.CardSize.ToString());
+			if (_uiElements.TryGetValue("idleOpacity_input", out var idleOpacityInput))
+				SetText(idleOpacityInput, ((int)(_currentSettings.IdleOpacity * 100)).ToString());
+			if (_uiElements.TryGetValue("activeOpacity_input", out var activeOpacityInput))
+				SetText(activeOpacityInput, ((int)(_currentSettings.ActiveOpacity * 100)).ToString());
+			if (_uiElements.TryGetValue("idleDelay_input", out var idleDelayInput))
+				SetText(idleDelayInput, (_currentSettings.IdleDelaySeconds).ToString("F1"));
 		}
 
 		// Reflection helper methods
@@ -482,6 +556,19 @@ namespace sts2decktracker
 
 			var delegateCallback = Delegate.CreateDelegate(pressed.EventHandlerType, callback.Target, callback.Method);
 			pressed.AddEventHandler(button, delegateCallback);
+		}
+
+		private static void ConnectTextSubmitted(object lineEdit, Action<string> callback)
+		{
+			var textSubmitted = lineEdit.GetType().GetEvent("TextSubmitted");
+			if (textSubmitted == null || textSubmitted.EventHandlerType == null)
+			{
+				GD.PrintErr($"[ModSettingsUI] TextSubmitted event not found on {lineEdit.GetType().Name}");
+				return;
+			}
+
+			var delegateCallback = Delegate.CreateDelegate(textSubmitted.EventHandlerType, callback.Target, callback.Method);
+			textSubmitted.AddEventHandler(lineEdit, delegateCallback);
 		}
 
 		private static object CreateStringName(string text)

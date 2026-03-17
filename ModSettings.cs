@@ -41,7 +41,7 @@ namespace sts2decktracker
 		public float ActiveOpacity { get; set; } = 1.0f;  // Fully opaque when cards are drawn
 		
 		[System.Text.Json.Serialization.JsonPropertyName("idleDelaySeconds")]
-		public float IdleDelaySeconds { get; set; } = 2.0f;  // Seconds to wait before fading to idle opacity
+		public float IdleDelaySeconds { get; set; } = 1.0f;  // Seconds to wait before fading to idle opacity
 		
 		// Computed properties based on CardSize - everything scales automatically
 		public int PanelWidth => CardSize * 11 + 8;  // Panel width scales with card size (24 -> 240px)
@@ -124,6 +124,18 @@ namespace sts2decktracker
 			{
 				Godot.GD.PrintErr($"[ModSettings] Failed to save settings: {ex.Message}");
 			}
+		}
+
+		public void ResetToDefaults()
+		{
+			DrawPileX = 0;
+			DrawPileY = 140;
+			DiscardPileX = -250;
+			DiscardPileY = 140;
+			CardSize = 28;
+			IdleOpacity = 0.3f;
+			ActiveOpacity = 1.0f;
+			IdleDelaySeconds = 1.0f;
 		}
 	}
 }
