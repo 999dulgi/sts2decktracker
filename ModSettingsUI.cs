@@ -71,72 +71,19 @@ namespace sts2decktracker
 			{
 				var modType = mod.GetType();
 				var bindingFlags = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
-
-				// Try to get pckName property
-				var properties = modType.GetProperties(bindingFlags);
-				GD.Print($"[ModSettingsUI] Available properties ({properties.Length}):");
-				foreach (var prop in properties)
-				{
-					try
-					{
-						var value = prop.GetValue(mod);
-						GD.Print($"  - {prop.Name} ({prop.PropertyType.Name}): {value}");
-					}
-					catch (Exception ex)
-					{
-						GD.Print($"  - {prop.Name} ({prop.PropertyType.Name}): <error: {ex.Message}>");
-					}
-				}
  
-				// List all fields
-				var fields = modType.GetFields(bindingFlags);
-				GD.Print($"[ModSettingsUI] Available fields ({fields.Length}):");
-				foreach (var field in fields)
+				string fieldName = "assembly";
+				var field = modType.GetField(fieldName, bindingFlags);
+				if (field != null)
 				{
-					try
-					{
-						var value = field.GetValue(mod);
-						GD.Print($"  - {field.Name} ({field.FieldType.Name}): {value}");
-					}
-					catch (Exception ex)
-					{
-						GD.Print($"  - {field.Name} ({field.FieldType.Name}): <error: {ex.Message}>");
-					}
-				}
- 
-				// Try multiple possible property names
-				string[] possibleNames = { "pck_name", "pckName", "PckName", "modName", "ModName", "name", "Name" };
-				foreach (var propName in possibleNames)
-				{
-					var property = modType.GetProperty(propName, bindingFlags);
-					if (property != null)
-					{
-						var value = property.GetValue(mod);
-						string valueStr = value?.ToString() ?? "";
-						GD.Print($"[ModSettingsUI] Found property '{propName}': {valueStr}");
-						if (valueStr.Contains("sts2decktracker") || valueStr.Contains("Slay the Spire 2 Deck Tracker"))
-						{
-							GD.Print($"[ModSettingsUI] Mod matched on property '{propName}'!");
-							return true;
-						}
-					}
-				}
- 
-				// Try fields as well
-				foreach (var fieldName in possibleNames)
-				{
-					var field = modType.GetField(fieldName, bindingFlags);
-					if (field != null)
-					{
-						var value = field.GetValue(mod);
-						string valueStr = value?.ToString() ?? "";
+					var value = field.GetValue(mod);
+					string valueStr = value?.ToString() ?? "";
 						GD.Print($"[ModSettingsUI] Found field '{fieldName}': {valueStr}");
 						if (valueStr.Contains("sts2decktracker") || valueStr.Contains("Slay the Spire 2 Deck Tracker"))
 						{
 							GD.Print($"[ModSettingsUI] Mod matched on field '{fieldName}'!");
 							return true;
 						}
-					}
 				}
 			}
 			catch (Exception ex)
