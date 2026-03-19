@@ -2,8 +2,6 @@ using HarmonyLib;
 using Godot;
 using MegaCrit.Sts2.Core.Nodes.Combat;
 using MegaCrit.Sts2.Core.Entities.Cards;
-using MegaCrit.Sts2.Core.Commands;
-using MegaCrit.Sts2.Core.Entities.Players;
 
 namespace sts2decktracker
 {

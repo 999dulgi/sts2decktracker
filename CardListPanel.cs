@@ -25,7 +25,7 @@ namespace sts2decktracker
 		private float _idleDelaySeconds = 2.0f;
 		private CardPile _currentPile = null;
 		private MegaCrit.Sts2.Core.Entities.Players.Player _currentPlayer = null;
-		
+
 		public void SetPileType(PileType pileType)
 		{
 			_pileType = pileType;
@@ -41,34 +41,43 @@ namespace sts2decktracker
 			Modulate = new Color(1, 1, 1, _currentOpacity);
 		}
 
+	private static void SetMouseIgnoreRecursive(Node node)
+	{
+		if (node is Control control)
+			control.MouseFilter = MouseFilterEnum.Ignore;
+		foreach (Node child in node.GetChildren())
+			SetMouseIgnoreRecursive(child);
+	}
+
 	public override void _Ready()
 	{
 		CustomMinimumSize = new Vector2(250, 400);
 		Size = new Vector2(250, 400);
-		
+
 		ZIndex = 100;
-		
+
+		MouseFilter = MouseFilterEnum.Ignore;
 		SetAnchorsPreset(LayoutPreset.TopLeft);
-		
+
 		var emptyStyle = new StyleBoxEmpty();
 		AddThemeStyleboxOverride("panel", emptyStyle);
-		
+
 		var mainContainer = new VBoxContainer();
 		mainContainer.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
 		mainContainer.AddThemeConstantOverride("separation", 5);
 		AddChild(mainContainer);
-		
+
 		var marginContainer = new MarginContainer();
 		marginContainer.AddThemeConstantOverride("margin_left", 10);
 		marginContainer.AddThemeConstantOverride("margin_right", 10);
 		marginContainer.AddThemeConstantOverride("margin_top", 10);
 		marginContainer.AddThemeConstantOverride("margin_bottom", 10);
 		mainContainer.AddChild(marginContainer);
-		
+
 		var innerContainer = new VBoxContainer();
 		innerContainer.AddThemeConstantOverride("separation", 8);
 		marginContainer.AddChild(innerContainer);
-	
+
 		_cardList = new VBoxContainer
 		{
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
@@ -77,6 +86,8 @@ namespace sts2decktracker
 		};
 		_cardList.AddThemeConstantOverride("separation", 3);
 		innerContainer.AddChild(_cardList);
+
+		SetMouseIgnoreRecursive(this);
 	}
 
 	private void OnPileContentsChanged()
@@ -92,6 +103,7 @@ namespace sts2decktracker
 
 	public override void _Process(double delta)
 	{
+
 		// Smoothly transition opacity
 		if (Math.Abs(_currentOpacity - _targetOpacity) > 0.01f)
 		{
@@ -161,11 +173,11 @@ namespace sts2decktracker
 			{
 				_currentPile.ContentsChanged -= OnPileContentsChanged;
 			}
-			
+
 			// Subscribe to new pile
 			_currentPile = pile;
 			_currentPile.ContentsChanged += OnPileContentsChanged;
-			
+
 			// Initial update
 			UpdateCardList(_cardList, _currentPile);
 		}
@@ -201,14 +213,14 @@ namespace sts2decktracker
 		// Group cards by name, upgrade status, and enchantment
 		var cardGroups = new System.Collections.Generic.Dictionary<string, (CardModel card, int count)>();
 		var currentCardKeys = new System.Collections.Generic.HashSet<string>();
-		
+
 		foreach (var card in pile.Cards)
 		{
 			// Create unique key: name + upgrade status + enchantment
 			string enchantmentKey = card.Enchantment != null ? card.Enchantment.GetType().Name : "none";
 			string key = $"{card.Title}|{card.IsUpgraded}|{enchantmentKey}";
 			currentCardKeys.Add(key);
-			
+
 			if (cardGroups.TryGetValue(key, out var existing))
 			{
 				cardGroups[key] = (existing.card, existing.count + 1);
@@ -220,7 +232,7 @@ namespace sts2decktracker
 		}
 
 		System.Collections.Generic.List<(CardModel card, int count)> displayGroups;
-	
+
 	// Determine display order
 	if (_shuffledOrder == null || _shuffledOrder.Count == 0)
 	{
@@ -241,7 +253,7 @@ namespace sts2decktracker
 		// Maintain shuffled order, just update counts (keep positions even if count is 0)
 		displayGroups = new System.Collections.Generic.List<(CardModel card, int count)>();
 		var remainingCards = new System.Collections.Generic.Dictionary<string, (CardModel card, int count)>(cardGroups);
-		
+
 		// Keep cards in their shuffled order with updated counts
 		foreach (var oldGroup in _shuffledOrder)
 		{
@@ -258,13 +270,13 @@ namespace sts2decktracker
 				displayGroups.Add((oldGroup.card, 0));
 			}
 		}
-		
+
 		// Add any new cards at the end
 		foreach (var newCard in remainingCards.Values)
 		{
 			displayGroups.Add(newCard);
 		}
-		
+
 		_shuffledOrder = displayGroups;
 	}
 
@@ -273,13 +285,13 @@ namespace sts2decktracker
 		{
 			var card = group.card;
 			var count = group.count;
-			
+
 			// Skip cards with count 0
 			if (count == 0)
 			{
 				continue;
 			}
-			
+
 			try
 			{
 				// Get card portrait texture
@@ -290,22 +302,23 @@ namespace sts2decktracker
 					int cardHeight = _settings?.CardHeight ?? 32;
 					int cardWidth = _settings?.CardWidth ?? 200;
 					int cardImageWidth = _settings?.CardImageWidth ?? 175;
-					
+
 					// Create parent container for card image and energy icon
 					var cardRowContainer = new HBoxContainer
 					{
 						CustomMinimumSize = new Vector2(cardWidth, cardHeight)
 					};
 					cardRowContainer.AddThemeConstantOverride("separation", 2);
-					
+
 					// Use Control with ClipContents to crop the image
 					var clipContainer = new Control
 					{
 						CustomMinimumSize = new Vector2(cardImageWidth, cardHeight),
 						Size = new Vector2(cardImageWidth, cardHeight),
-						ClipContents = true
+						ClipContents = true,
+						MouseFilter = Control.MouseFilterEnum.Ignore
 					};
-					
+
 					var textureRect = new TextureRect
 					{
 						Texture = portrait,
@@ -313,11 +326,12 @@ namespace sts2decktracker
 						Position = new Vector2(0, -portrait.GetHeight() / 4),
 						Size = new Vector2(cardImageWidth, portrait.GetHeight() * (float)cardImageWidth / portrait.GetWidth()),
 						ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-						StretchMode = TextureRect.StretchModeEnum.KeepAspect
+						StretchMode = TextureRect.StretchModeEnum.KeepAspect,
+						MouseFilter = Control.MouseFilterEnum.Ignore
 					};
-					
+
 					clipContainer.AddChild(textureRect);
-					
+
 					// Add enchantment icon if card is enchanted (inside card image, right side)
 					if (card.Enchantment != null)
 					{
@@ -338,11 +352,12 @@ namespace sts2decktracker
 										Position = new Vector2(cardImageWidth - enchantIconSize - 4, 2),
 										CustomMinimumSize = new Vector2(enchantIconSize, enchantIconSize),
 										ExpandMode = TextureRect.ExpandModeEnum.FitWidthProportional,
-										StretchMode = TextureRect.StretchModeEnum.KeepAspect
+										StretchMode = TextureRect.StretchModeEnum.KeepAspect,
+										MouseFilter = Control.MouseFilterEnum.Ignore
 									};
 									// Apply purple glow effect via modulate
 									enchantIconRect.Modulate = new Color(1.5f, 1.3f, 1.8f, 1.0f); // Bright purple-ish glow
-									
+
 									clipContainer.AddChild(enchantIconRect);
 								}
 							}
@@ -352,7 +367,7 @@ namespace sts2decktracker
 							GD.PrintErr($"[CardListPanel] Error adding enchantment icon: {ex.Message}");
 						}
 					}
-					
+
 					// Add card count label (separate from name)
 					var countLabel = new Label
 					{
@@ -372,18 +387,18 @@ namespace sts2decktracker
 					countLabel.AddThemeConstantOverride("shadow_outline_size", 10);
 					countLabel.ApplyLocaleFontSubstitution(FontType.Bold, "font");
 					clipContainer.AddChild(countLabel);
-					
+
 					// Add card name label (without count)
 					var nameLabel = new Label();
 					string displayName = GetCardDisplayName(card);
 					nameLabel.Text = displayName;
 					int nameFontSize = _settings?.CardNameFontSize ?? 24;
 					nameLabel.AddThemeFontSizeOverride("font_size", nameFontSize);
-					
+
 					// Apply title colors like NCard.UpdateTitleLabel
 					Color titleColor;
 					Color titleOutlineColor;
-					
+
 					if (card.CurrentUpgradeLevel == 0)
 					{
 						// Not upgraded - cream color with rarity-based outline
@@ -396,7 +411,7 @@ namespace sts2decktracker
 						titleColor = StsColors.green;
 						titleOutlineColor = StsColors.cardTitleOutlineSpecial;
 					}
-					
+
 					nameLabel.AddThemeColorOverride("font_color", titleColor);
 					nameLabel.AddThemeColorOverride("font_shadow_color", new Color(0, 0, 0, 0.188f));
 					nameLabel.AddThemeColorOverride("font_outline_color", titleOutlineColor);
@@ -404,18 +419,18 @@ namespace sts2decktracker
 					nameLabel.AddThemeConstantOverride("shadow_offset_y", 2);
 					nameLabel.AddThemeConstantOverride("outline_size", 10);
 					nameLabel.AddThemeConstantOverride("shadow_outline_size", 10);
-					
+
 					// Apply language-specific font substitution (same as game's card titles) - use Bold
 					nameLabel.ApplyLocaleFontSubstitution(FontType.Bold, "font");
-					
+
 					// Center vertically, positioned after count
 					nameLabel.VerticalAlignment = VerticalAlignment.Center;
 					nameLabel.Position = new Vector2(countFontSize, 0);
 					nameLabel.Size = new Vector2(cardImageWidth, cardHeight);
-					
+
 					clipContainer.AddChild(nameLabel);
 					cardRowContainer.AddChild(clipContainer);
-					
+
 					// Add energy cost icon on the right side (outside card image)
 					try
 					{
@@ -425,7 +440,7 @@ namespace sts2decktracker
 							// Determine cost text based on card state (similar to NCard.UpdateEnergyCostVisuals)
 							string costText;
 							bool showIcon = true;
-							
+
 							if (card.EnergyCost.CostsX)
 							{
 								costText = "X";
@@ -436,29 +451,31 @@ namespace sts2decktracker
 								costText = costWithModifiers.ToString();
 								showIcon = costWithModifiers >= 0; // Hide icon for negative costs
 							}
-							
+
 							if (showIcon)
 							{
 								// Get cost icon size from settings
 								int iconSize = _settings?.CostIconSize ?? 30;
-								
+
 								// Energy cost container (for icon + number overlay)
 								var energyCostContainer = new Control
 								{
 									CustomMinimumSize = new Vector2(iconSize, iconSize),
-									Size = new Vector2(iconSize, iconSize)
+									Size = new Vector2(iconSize, iconSize),
+									MouseFilter = Control.MouseFilterEnum.Ignore
 								};
-								
+
 								// Energy icon background
 								var energyIconRect = new TextureRect
 								{
 									Texture = energyIcon,
 									CustomMinimumSize = new Vector2(iconSize, iconSize),
 									ExpandMode = TextureRect.ExpandModeEnum.FitWidthProportional,
-									StretchMode = TextureRect.StretchModeEnum.KeepAspect
+									StretchMode = TextureRect.StretchModeEnum.KeepAspect,
+									MouseFilter = Control.MouseFilterEnum.Ignore
 								};
 								energyCostContainer.AddChild(energyIconRect);
-								
+
 								// Energy cost number on top
 								var costLabel = new Label
 								{
@@ -469,11 +486,11 @@ namespace sts2decktracker
 								};
 								int costFontSize = _settings?.EnergyCostFontSize ?? 28;
 								costLabel.AddThemeFontSizeOverride("font_size", costFontSize);
-								
+
 								// Apply theme colors like NCard.UpdateEnergyCostColor
 								Color fontColor = StsColors.cream;
 								Color outlineColor = card.Pool.EnergyOutlineColor;
-								
+
 								// Check if energy cost was just upgraded (green color)
 								if (card.EnergyCost != null && !card.EnergyCost.CostsX && card.EnergyCost.WasJustUpgraded)
 								{
@@ -500,7 +517,7 @@ namespace sts2decktracker
 											break;
 									}
 								}
-								
+
 								costLabel.AddThemeColorOverride("font_color", fontColor);
 								costLabel.AddThemeColorOverride("font_outline_color", outlineColor);
 								costLabel.AddThemeConstantOverride("shadow_offset_x", 2);
@@ -509,7 +526,7 @@ namespace sts2decktracker
 								costLabel.AddThemeConstantOverride("shadow_outline_size", 10);
 								costLabel.ApplyLocaleFontSubstitution(FontType.Bold, "font");
 								energyCostContainer.AddChild(costLabel);
-								
+
 								cardRowContainer.AddChild(energyCostContainer);
 							}
 						}
@@ -518,7 +535,7 @@ namespace sts2decktracker
 					{
 						GD.PrintErr($"[CardListPanel] Error loading energy icon: {ex.Message}");
 					}
-					
+
 					// Add star cost icon if card has star cost
 					try
 					{
@@ -531,28 +548,30 @@ namespace sts2decktracker
 							{
 								string starCostText = card.HasStarCostX ? "X" : starCost.ToString();
 								bool showStarIcon = card.HasStarCostX || starCost >= 0;
-								
+
 								if (showStarIcon)
 								{
 									// Get cost icon size from settings
 									int iconSize = _settings?.CostIconSize ?? 30;
-									
+
 									var starCostContainer = new Control
 									{
 										CustomMinimumSize = new Vector2(iconSize, iconSize),
-										Size = new Vector2(iconSize, iconSize)
+										Size = new Vector2(iconSize, iconSize),
+										MouseFilter = Control.MouseFilterEnum.Ignore
 									};
-									
+
 									// Star icon background
 									var starIconRect = new TextureRect
 									{
 										Texture = starIcon,
 										CustomMinimumSize = new Vector2(iconSize, iconSize),
 										ExpandMode = TextureRect.ExpandModeEnum.FitWidthProportional,
-										StretchMode = TextureRect.StretchModeEnum.KeepAspect
+										StretchMode = TextureRect.StretchModeEnum.KeepAspect,
+										MouseFilter = Control.MouseFilterEnum.Ignore
 									};
 									starCostContainer.AddChild(starIconRect);
-									
+
 									// Star cost number on top
 									var starCostLabel = new Label
 									{
@@ -571,7 +590,7 @@ namespace sts2decktracker
 									starCostLabel.AddThemeConstantOverride("shadow_outline_size", 10);
 									starCostLabel.ApplyLocaleFontSubstitution(FontType.Bold, "font");
 									starCostContainer.AddChild(starCostLabel);
-									
+
 									cardRowContainer.AddChild(starCostContainer);
 								}
 							}
@@ -581,7 +600,7 @@ namespace sts2decktracker
 					{
 						GD.PrintErr($"[CardListPanel] Error loading star icon: {ex.Message}");
 					}
-					
+
 					container.AddChild(cardRowContainer);
 				}
 				else
@@ -603,13 +622,15 @@ namespace sts2decktracker
 				container.AddChild(label);
 			}
 		}
+
+	SetMouseIgnoreRecursive(container);
 	}
-	
+
 	private static string GetCardDisplayName(CardModel card)
 	{
 		return card.IsUpgraded ? $"{card.Title}" : card.Title;
 	}
-	
+
 	private static Color GetTitleOutlineColorByRarity(CardRarity rarity)
 	{
 		return rarity switch

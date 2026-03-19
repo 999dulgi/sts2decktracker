@@ -126,28 +126,28 @@ namespace sts2decktracker
 			var drawXRow = CreateAdjustRow("Draw Pile X", () => _currentSettings.DrawPileX, (value) =>
 			{
 				_currentSettings.DrawPileX = value;
-			}, 1, -500, 500, "drawX_input");
+			}, 1, 0, 1920, "drawX_input");
 			AddChild(mainPanel, drawXRow);
 
 			// Draw Pile Y Position
 			var drawYRow = CreateAdjustRow("Draw Pile Y", () => _currentSettings.DrawPileY, (value) =>
 			{
 				_currentSettings.DrawPileY = value;
-			}, 1, -500, 500, "drawY_input");
+			}, 1, 0, 1080, "drawY_input");
 			AddChild(mainPanel, drawYRow);
 
 			// Discard Pile X Position
 			var discardXRow = CreateAdjustRow("Discard Pile X", () => _currentSettings.DiscardPileX, (value) =>
 			{
 				_currentSettings.DiscardPileX = value;
-			}, 1, -500, 500, "discardX_input");
+			}, 1, -1920, 0, "discardX_input");
 			AddChild(mainPanel, discardXRow);
 
 			// Discard Pile Y Position
 			var discardYRow = CreateAdjustRow("Discard Pile Y", () => _currentSettings.DiscardPileY, (value) =>
 			{
 				_currentSettings.DiscardPileY = value;
-			}, 1, -500, 500, "discardY_input");
+			}, 1, 0, 1080, "discardY_input");
 			AddChild(mainPanel, discardYRow);
 
 			AddChild(mainPanel, CreateSpacer(5));
@@ -270,10 +270,14 @@ namespace sts2decktracker
 				_uiElements[uiKey] = lineEdit;
 			}
 			
-			// Connect text submitted event
-			ConnectTextSubmitted(lineEdit, (text) =>
+			// Connect text changed event
+			ConnectTextChanged(lineEdit, (text) =>
 			{
-				if (int.TryParse(text, out int newValue))
+				if(text == null) {
+					setValue(0);
+					SetText(lineEdit, "0");
+				}
+				else if (int.TryParse(text, out int newValue))
 				{
 					newValue = Math.Clamp(newValue, min, max);
 					setValue(newValue);
@@ -284,6 +288,8 @@ namespace sts2decktracker
 					SetText(lineEdit, getValue().ToString());
 				}
 			});
+
+			
 
 			// Minus button
 			var minusButton = Activator.CreateInstance(buttonType);
@@ -340,10 +346,14 @@ namespace sts2decktracker
 				_uiElements[uiKey] = lineEdit;
 			}
 			
-			// Connect text submitted event
-			ConnectTextSubmitted(lineEdit, (text) =>
+			// Connect text changed event
+			ConnectTextChanged(lineEdit, (text) =>
 			{
-				if (float.TryParse(text, out float floatValue))
+				if(text == null) {
+					setValue(0);
+					SetText(lineEdit, "0");
+				}
+				else if (float.TryParse(text, out float floatValue))
 				{
 					int newValue = (int)(floatValue * divisor);
 					newValue = Math.Clamp(newValue, min, max);
@@ -505,17 +515,17 @@ namespace sts2decktracker
 			pressed.AddEventHandler(button, delegateCallback);
 		}
 
-		private static void ConnectTextSubmitted(object lineEdit, Action<string> callback)
+		private static void ConnectTextChanged(object lineEdit, Action<string> callback)
 		{
-			var textSubmitted = lineEdit.GetType().GetEvent("TextSubmitted");
-			if (textSubmitted == null || textSubmitted.EventHandlerType == null)
+			var textChanged = lineEdit.GetType().GetEvent("TextChanged");
+			if (textChanged == null || textChanged.EventHandlerType == null)
 			{
-				GD.PrintErr($"[ModSettingsUI] TextSubmitted event not found on {lineEdit.GetType().Name}");
+				GD.PrintErr($"[ModSettingsUI] TextChanged event not found on {lineEdit.GetType().Name}");
 				return;
 			}
 
-			var delegateCallback = Delegate.CreateDelegate(textSubmitted.EventHandlerType, callback.Target, callback.Method);
-			textSubmitted.AddEventHandler(lineEdit, delegateCallback);
+			var delegateCallback = Delegate.CreateDelegate(textChanged.EventHandlerType, callback.Target, callback.Method);
+			textChanged.AddEventHandler(lineEdit, delegateCallback);
 		}
 
 		private static object CreateStringName(string text)
