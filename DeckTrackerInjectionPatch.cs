@@ -39,7 +39,6 @@ namespace sts2decktracker
 				_discardPilePanel = new CardListPanel();
 				_discardPilePanel.SetPileType(PileType.Discard);
 				_discardPilePanel.SetSettings(settings);
-				_discardPilePanel.SetAnchorsPreset(Control.LayoutPreset.TopRight);
 				_discardPilePanel.CustomMinimumSize = new Vector2(settings.PanelWidth, settings.PanelHeight);
 				_discardPilePanel.Size = new Vector2(settings.PanelWidth, settings.PanelHeight);
 				_discardPilePanel.Position = new Vector2(settings.DiscardPileX, settings.DiscardPileY);
