@@ -24,6 +24,8 @@ namespace sts2decktracker
 
         private Label _headerLabel;
         private HBoxContainer _cardRow;
+        private static Font _KreonRegularFont;
+        private static Font KreonRegular => _KreonRegularFont ??= ResourceLoader.Load<Font>("res://fonts/kreon_regular.ttf");
 
         public void SetSettings(ModSettings settings)
         {
@@ -64,6 +66,7 @@ namespace sts2decktracker
             _headerLabel.AddThemeColorOverride("font_color", StsColors.gold);
             _headerLabel.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 1f));
             _headerLabel.AddThemeConstantOverride("outline_size", 10);
+            _headerLabel.AddThemeFontOverride("font", KreonRegular);
             _headerLabel.ApplyLocaleFontSubstitution(FontType.Bold, "font");
             vbox.AddChild(_headerLabel);
 
@@ -177,7 +180,7 @@ namespace sts2decktracker
                 var nameLabel = new Label
                 {
                     VerticalAlignment = VerticalAlignment.Center,
-                    Position = new Vector2(countFontSize, 0),
+                    Position = new Vector2(countFontSize + 2, 0),
                     Size = new Vector2(cardImageWidth, cardHeight)
                 };
                 nameLabel.Text = topCard.Title;
@@ -203,6 +206,7 @@ namespace sts2decktracker
                 nameLabel.AddThemeConstantOverride("shadow_offset_y", 2);
                 nameLabel.AddThemeConstantOverride("outline_size", 10);
                 nameLabel.AddThemeConstantOverride("shadow_outline_size", 10);
+                nameLabel.AddThemeFontOverride("font", KreonRegular);
                 nameLabel.ApplyLocaleFontSubstitution(FontType.Bold, "font");
                 clipContainer.AddChild(nameLabel);
 
@@ -259,6 +263,7 @@ namespace sts2decktracker
                             costLabel.AddThemeColorOverride("font_color", StsColors.cream);
                             costLabel.AddThemeColorOverride("font_outline_color", topCard.Pool.EnergyOutlineColor);
                             costLabel.AddThemeConstantOverride("outline_size", 10);
+                            costLabel.AddThemeFontOverride("font", KreonRegular);
                             costLabel.ApplyLocaleFontSubstitution(FontType.Bold, "font");
                             energyCostContainer.AddChild(costLabel);
 
@@ -310,6 +315,7 @@ namespace sts2decktracker
                             starCostLabel.AddThemeColorOverride("font_color", StsColors.cream);
                             starCostLabel.AddThemeColorOverride("font_outline_color", topCard.Pool.EnergyOutlineColor);
                             starCostLabel.AddThemeConstantOverride("outline_size", 10);
+                            starCostLabel.AddThemeFontOverride("font", KreonRegular);
                             starCostLabel.ApplyLocaleFontSubstitution(FontType.Bold, "font");
                             starCostContainer.AddChild(starCostLabel);
 
