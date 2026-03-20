@@ -2,6 +2,9 @@ using HarmonyLib;
 using Godot;
 using MegaCrit.Sts2.Core.Nodes.Combat;
 using MegaCrit.Sts2.Core.Entities.Cards;
+using MegaCrit.Sts2.Core.Models;
+using System.Collections.Generic;
+using MegaCrit.Sts2.Core.Commands;
 
 namespace sts2decktracker
 {
@@ -10,6 +13,7 @@ namespace sts2decktracker
 	{
 		private static CardListPanel _drawPilePanel;
 		private static CardListPanel _discardPilePanel;
+		private static TopCardPanel _topCardPanel;
 
 		public static void Postfix(NCombatUi __instance)
 		{
@@ -25,12 +29,19 @@ namespace sts2decktracker
 				_drawPilePanel.Size = new Vector2(settings.PanelWidth, settings.PanelHeight);
 				_drawPilePanel.Position = new Vector2(settings.DrawPileX, settings.DrawPileY);
 				__instance.AddChild(_drawPilePanel);
-				
+
+				// Create Top Card panel (to the right of draw pile)
+				_topCardPanel = new TopCardPanel();
+				_topCardPanel.SetSettings(settings);
+				_topCardPanel.CustomMinimumSize = new Vector2(settings.PanelWidth, settings.PanelHeight);
+				_topCardPanel.Size = new Vector2(settings.PanelWidth, settings.PanelHeight);
+				_topCardPanel.Position = new Vector2(settings.DrawPileX + settings.PanelWidth + 4, settings.DrawPileY);
+				__instance.AddChild(_topCardPanel);
+
 				// Create Discard Pile panel (right side)
 				_discardPilePanel = new CardListPanel();
 				_discardPilePanel.SetPileType(PileType.Discard);
 				_discardPilePanel.SetSettings(settings);
-				_discardPilePanel.SetAnchorsPreset(Control.LayoutPreset.TopRight);
 				_discardPilePanel.CustomMinimumSize = new Vector2(settings.PanelWidth, settings.PanelHeight);
 				_discardPilePanel.Size = new Vector2(settings.PanelWidth, settings.PanelHeight);
 				_discardPilePanel.Position = new Vector2(settings.DiscardPileX, settings.DiscardPileY);
@@ -73,6 +84,14 @@ namespace sts2decktracker
 				{
 					GD.Print($"[DeckTrackerInjectionPatch] Discard pile panel is disposed, skipping");
 				}
+
+				if (_topCardPanel != null && GodotObject.IsInstanceValid(_topCardPanel))
+				{
+					_topCardPanel.SetSettings(settings);
+					_topCardPanel.CustomMinimumSize = new Vector2(settings.PanelWidth, settings.PanelHeight);
+					_topCardPanel.Size = new Vector2(settings.PanelWidth, settings.PanelHeight);
+					_topCardPanel.Position = new Vector2(settings.DrawPileX + settings.PanelWidth + 4, settings.DrawPileY);
+				}
 			}
 			catch (System.Exception ex)
 			{
@@ -110,14 +129,41 @@ namespace sts2decktracker
 				foreach (Node child in __instance.GetChildren())
 				{
 					if (child is CardListPanel panel)
-					{
 						panel.Visible = false;
-					}
+					else if (child is TopCardPanel topPanel)
+						topPanel.Visible = false;
 				}
 			}
 			catch (System.Exception ex)
 			{
 				GD.PrintErr($"[DeckTrackerCombatWonPatch] Failed to hide panels: {ex.Message}");
+			}
+		}
+	}
+
+	[HarmonyPatch]
+	public static class CardPileTopTrackPatch
+	{
+		static System.Reflection.MethodInfo TargetMethod()
+		{
+			var abstractModelType = AccessTools.TypeByName("MegaCrit.Sts2.Core.Models.AbstractModel");
+			GD.Print($"[CardPileTopTrackPatch] AbstractModel type found: {abstractModelType != null}");
+			var method = AccessTools.Method(typeof(CardPileCmd), nameof(CardPileCmd.Add),
+				new[] { typeof(IEnumerable<CardModel>), typeof(CardPile), typeof(CardPilePosition), abstractModelType, typeof(bool) });
+			GD.Print($"[CardPileTopTrackPatch] TargetMethod found: {method != null}");
+			return method;
+		}
+
+		public static void Prefix(IEnumerable<CardModel> cards, CardPile newPile, CardPilePosition position)
+		{
+			GD.Print($"[CardPileTopTrackPatch] Prefix called: position={position}, pileType={newPile?.Type}");
+			if (position == CardPilePosition.Top && newPile?.Type == PileType.Draw)
+			{
+				foreach (var card in cards)
+				{
+					GD.Print($"[CardPileTopTrackPatch] Marking top card: {card.Title}");
+					TopCardTracker.MarkAsIntendedTop(card);
+				}
 			}
 		}
 	}
@@ -144,7 +190,7 @@ namespace sts2decktracker
 		{
 			try
 			{				
-				ModSettingsUI.RefreshForSelection(__instance, mod);
+				ModSettings.RefreshForSelection(__instance, mod);
 			}
 			catch (System.Exception ex)
 			{
