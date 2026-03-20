@@ -28,12 +28,12 @@ The config file will be created automatically on first run with default values.
 {
   "drawPileX": 0,
   "drawPileY": 140,
-  "discardPileX": -250,
+  "discardPileX": 1660,
   "discardPileY": 140,
-  "cardSize": 24,
+  "cardSize": 28,
   "idleOpacity": 0.3,
   "activeOpacity": 1.0,
-  "idleDelaySeconds": 5.0
+  "idleDelaySeconds": 1.0
 }
 ```
 
@@ -84,12 +84,12 @@ Slay the Spire 2 덱 트레커 모드입니다.
 {
   "drawPileX": 0,
   "drawPileY": 140,
-  "discardPileX": -250,
+  "discardPileX": 1660,
   "discardPileY": 140,
-  "cardSize": 24,
+  "cardSize": 28,
   "idleOpacity": 0.3,
   "activeOpacity": 1.0,
-  "idleDelaySeconds": 5.0
+  "idleDelaySeconds": 1.0
 }
 ```
 
@@ -113,20 +113,10 @@ Slay the Spire 2 덱 트레커 모드입니다.
 
 ## How to Build
 
-You can build this mod on Godot 4.5.1
+You can build this mod on dotnet or Godot 4.5.1
 
 ### Make DLL
 
-1. Open the project in Godot 4.5.1
-2. Go to Project -> Export
-3. Export the project
-4. Copy the generated DLL in the .godot/mono/temp/bin/Debug/sts2decktracker.dll
-
-### Make PCK
-
-In sts2 beta version, you don't need to make pck file. you can just copy the sts2decktracker_manifest.json and the dll file to the mods folder.
-
-1. Open the project in Godot 4.5.1
-2. Go to Project -> Export
-3. Select Resource - Export selected resources (and dependencies) and select mod_manifest.json and Export PCK/ZIP
-4. Copy the generated PCK in the project folder
+1. Open the terminal and goto project directory
+2. Enter `donet build`
+4. DLL file will be in sts2 mod folder. Or copy the generated DLL in the .godot/mono/temp/bin/Debug/sts2decktracker.dll
