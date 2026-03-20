@@ -3,8 +3,8 @@
   "name": "Slay the Spire 2 Deck Tracker",
   "author": "999dulgi",
   "description": "A deck tracker mod for Slay the Spire 2.",
-  "version": "1.1.5",
+  "version": "1.2.0",
   "has_pck": false,
   "has_dll": true,
-  "affect_gameplay": false
+  "affects_gameplay": false
 }
