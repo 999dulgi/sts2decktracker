@@ -25,6 +25,8 @@ namespace sts2decktracker
         private float _idleDelaySeconds = 2.0f;
         private CardPile _currentPile = null;
         private MegaCrit.Sts2.Core.Entities.Players.Player _currentPlayer = null;
+        private static Font _KreonRegularFont;
+        private static Font KreonRegular => _KreonRegularFont ??= ResourceLoader.Load<Font>("res://fonts/kreon_regular.ttf");
 
         public void SetPileType(PileType pileType)
         {
@@ -309,7 +311,8 @@ namespace sts2decktracker
                         {
                             Text = count.ToString(),
                             VerticalAlignment = VerticalAlignment.Center,
-                            Position = new Vector2(3, 0),
+                            HorizontalAlignment = HorizontalAlignment.Center,
+                            Position = new Vector2(0, 0),
                             Size = new Vector2(cardHeight, cardHeight)
                         };
                         int countFontSize = _settings?.CardCountFontSize ?? 28;
@@ -321,6 +324,7 @@ namespace sts2decktracker
                         countLabel.AddThemeConstantOverride("shadow_offset_y", 2);
                         countLabel.AddThemeConstantOverride("outline_size", 10);
                         countLabel.AddThemeConstantOverride("shadow_outline_size", 10);
+                        countLabel.AddThemeFontOverride("font", KreonRegular);
                         countLabel.ApplyLocaleFontSubstitution(FontType.Bold, "font");
                         clipContainer.AddChild(countLabel);
 
@@ -350,10 +354,11 @@ namespace sts2decktracker
                         nameLabel.AddThemeConstantOverride("shadow_offset_y", 2);
                         nameLabel.AddThemeConstantOverride("outline_size", 10);
                         nameLabel.AddThemeConstantOverride("shadow_outline_size", 10);
+                        nameLabel.AddThemeFontOverride("font", KreonRegular);
                         nameLabel.ApplyLocaleFontSubstitution(FontType.Bold, "font");
                         nameLabel.VerticalAlignment = VerticalAlignment.Center;
-                        nameLabel.Position = new Vector2(countFontSize, 0);
                         nameLabel.Size = new Vector2(cardImageWidth, cardHeight);
+                        nameLabel.Position = new Vector2(countFontSize + 2, 0);
                         clipContainer.AddChild(nameLabel);
                         cardRowContainer.AddChild(clipContainer);
 
@@ -441,6 +446,7 @@ namespace sts2decktracker
                                     costLabel.AddThemeConstantOverride("shadow_offset_y", 2);
                                     costLabel.AddThemeConstantOverride("outline_size", 10);
                                     costLabel.AddThemeConstantOverride("shadow_outline_size", 10);
+                                    costLabel.AddThemeFontOverride("font", KreonRegular);
                                     costLabel.ApplyLocaleFontSubstitution(FontType.Bold, "font");
                                     energyCostContainer.AddChild(costLabel);
                                     cardRowContainer.AddChild(energyCostContainer);
@@ -499,6 +505,7 @@ namespace sts2decktracker
                                         starCostLabel.AddThemeConstantOverride("shadow_offset_y", 2);
                                         starCostLabel.AddThemeConstantOverride("outline_size", 10);
                                         starCostLabel.AddThemeConstantOverride("shadow_outline_size", 10);
+                                        starCostLabel.AddThemeFontOverride("font", KreonRegular);
                                         starCostLabel.ApplyLocaleFontSubstitution(FontType.Bold, "font");
                                         starCostContainer.AddChild(starCostLabel);
                                         cardRowContainer.AddChild(starCostContainer);
