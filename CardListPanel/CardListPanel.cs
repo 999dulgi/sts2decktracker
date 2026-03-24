@@ -437,10 +437,6 @@ namespace sts2decktracker
                                                 fontColor = StsColors.green;
                                                 outlineColor = StsColors.energyGreenOutline;
                                                 break;
-                                            case CardCostColor.InsufficientResources:
-                                                fontColor = StsColors.red;
-                                                outlineColor = StsColors.unplayableEnergyCostOutline;
-                                                break;
                                         }
                                     }
 
