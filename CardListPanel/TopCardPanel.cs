@@ -27,6 +27,19 @@ namespace sts2decktracker
         private static Font _KreonRegularFont;
         private static Font KreonRegular => _KreonRegularFont ??= ResourceLoader.Load<Font>("res://fonts/kreon_regular.ttf");
 
+        public override bool _HasPoint(Vector2 point)
+        {
+            return false;
+        }
+
+        private static void SetMouseIgnoreRecursive(Node node)
+        {
+            if (node is Control control)
+                control.MouseFilter = MouseFilterEnum.Ignore;
+            foreach (Node child in node.GetChildren())
+                SetMouseIgnoreRecursive(child);
+        }
+
         public void SetSettings(ModSettings settings)
         {
             _settings = settings;
@@ -336,6 +349,8 @@ namespace sts2decktracker
             {
                 GD.PrintErr($"[TopCardPanel] Error building card row: {ex.Message}");
             }
+
+            SetMouseIgnoreRecursive(this);
         }
 
         private static Color GetTitleOutlineColorByRarity(CardRarity rarity)
