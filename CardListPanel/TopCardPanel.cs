@@ -39,7 +39,6 @@ namespace sts2decktracker
         public override void _Ready()
         {
             MouseFilter = MouseFilterEnum.Ignore;
-            ZIndex = 100;
 
             var emptyStyle = new StyleBoxEmpty();
             AddThemeStyleboxOverride("panel", emptyStyle);
@@ -188,7 +187,12 @@ namespace sts2decktracker
 
                 Color titleColor;
                 Color titleOutlineColor;
-                if (topCard.CurrentUpgradeLevel == 0)
+                if (topCard.Enchantment != null)
+                {
+                    titleColor = new Color(0.85f, 0.6f, 1f, 1f);
+                    titleOutlineColor = new Color(0.3f, 0.05f, 0.45f, 1f);
+                }
+                else if (topCard.CurrentUpgradeLevel == 0)
                 {
                     titleColor = StsColors.cream;
                     titleOutlineColor = GetTitleOutlineColorByRarity(topCard.Rarity);

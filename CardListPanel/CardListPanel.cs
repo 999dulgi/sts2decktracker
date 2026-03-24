@@ -54,7 +54,6 @@ namespace sts2decktracker
         {
             CustomMinimumSize = new Vector2(250, 400);
             Size = new Vector2(250, 400);
-            ZIndex = 100;
             MouseFilter = MouseFilterEnum.Ignore;
             SetAnchorsPreset(LayoutPreset.TopLeft);
 
@@ -336,7 +335,12 @@ namespace sts2decktracker
                         Color titleColor;
                         Color titleOutlineColor;
 
-                        if (card.CurrentUpgradeLevel == 0)
+                        if (card.Enchantment != null)
+                        {
+                            titleColor = new Color(0.85f, 0.6f, 1f, 1f);
+                            titleOutlineColor = new Color(0.3f, 0.05f, 0.45f, 1f);
+                        }
+                        else if (card.CurrentUpgradeLevel == 0)
                         {
                             titleColor = StsColors.cream;
                             titleOutlineColor = GetTitleOutlineColorByRarity(card.Rarity);
@@ -420,7 +424,7 @@ namespace sts2decktracker
                                         fontColor = StsColors.green;
                                         outlineColor = StsColors.energyGreenOutline;
                                     }
-                                    else if (_pileType == PileType.Hand && card.CombatState != null)
+                                    else if (card.CombatState != null)
                                     {
                                         CardCostColor costColor = CardCostHelper.GetEnergyCostColor(card, card.CombatState);
                                         switch (costColor)
