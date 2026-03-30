@@ -1,9 +1,12 @@
 using System;
 using System.Globalization;
 using Godot;
+using HarmonyLib;
 using MegaCrit.Sts2.Core.Localization.Fonts;
 using MegaCrit.Sts2.Core.Nodes.CommonUi;
 using MegaCrit.Sts2.Core.Nodes.GodotExtensions;
+using MegaCrit.Sts2.Core.HoverTips;
+using MegaCrit.Sts2.Core.Nodes.HoverTips;
 
 namespace sts2decktracker
 {
@@ -21,6 +24,7 @@ namespace sts2decktracker
 		private float _max = float.MaxValue;
 		private float _step = 1f;
 		private string _format = "0";
+		private string _tooltip = "";
 
 		public float Value
 		{
@@ -42,6 +46,7 @@ namespace sts2decktracker
 			_label.CustomMinimumSize = new Vector2(150, 0);
 			_label.SizeFlagsVertical = SizeFlags.ShrinkCenter;
 			_label.AddThemeFontSizeOverride("font_size", 18);
+			_label.MouseFilter = MouseFilterEnum.Stop;
 			AddChild(_label);
 			_label.ApplyLocaleFontSubstitution(FontType.Regular, "font");
 
@@ -110,6 +115,24 @@ namespace sts2decktracker
 			if (_label != null)
 				_label.Text = labelText;
 			Value = initialValue;
+		}
+
+		public void SetupTooltip(string tooltip = "")
+		{
+			_tooltip = tooltip;
+			var tip = new HoverTip();
+			object box = tip;
+			AccessTools.Property(typeof(HoverTip), nameof(HoverTip.Title)).SetValue(box, _label.Text);
+			AccessTools.Property(typeof(HoverTip), nameof(HoverTip.Description)).SetValue(box, _tooltip);
+			_label.MouseEntered += () => 
+			{
+				var nHoverTipSet = NHoverTipSet.CreateAndShow(_label, (HoverTip)box);
+				nHoverTipSet.GlobalPosition = _label.GlobalPosition + new Vector2(100.0f, 0.0f);
+			};
+			_label.MouseExited += () =>
+			{
+				NHoverTipSet.Remove(_label);
+			};
 		}
 
 		private void OnArrowPressed(float delta)

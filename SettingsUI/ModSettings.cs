@@ -21,6 +21,15 @@ namespace sts2decktracker
 		[JsonPropertyName("discardPileY")]
 		public int DiscardPileY { get; set; } = 140;
 
+		[JsonPropertyName("topCardX")]
+		public int TopCardX { get; set; } = -1;
+
+		[JsonPropertyName("topCardY")]
+		public int TopCardY { get; set; } = -1;
+
+		[JsonPropertyName("draggable")]
+		public bool Draggable { get; set; } = false;
+
 		[JsonPropertyName("cardSize")]
 		public int CardSize { get; set; } = 24;
 
@@ -32,6 +41,12 @@ namespace sts2decktracker
 
 		[JsonPropertyName("idleDelaySeconds")]
 		public float IdleDelaySeconds { get; set; } = 1.0f;
+
+		[JsonPropertyName("showCardTooltip")]
+		public bool ShowCardTooltip { get; set; } = false;
+
+		[JsonPropertyName("rememberCustomPosition")]
+		public bool RememberCustomPosition { get; set; } = false;
 
 		public int PanelWidth => CardSize * 11 + 8;
 		public int PanelHeight => CardSize * 20;
@@ -79,6 +94,11 @@ namespace sts2decktracker
 					drawPileY = DrawPileY,
 					discardPileX = DiscardPileX,
 					discardPileY = DiscardPileY,
+					topCardX = TopCardX,
+					topCardY = TopCardY,
+					draggable = Draggable,
+					showCardTooltip = ShowCardTooltip,
+					rememberCustomPosition = RememberCustomPosition,
 					cardSize = CardSize,
 					idleOpacity = IdleOpacity,
 					activeOpacity = ActiveOpacity,
@@ -103,6 +123,9 @@ namespace sts2decktracker
 			IdleOpacity = 0.3f;
 			ActiveOpacity = 1.0f;
 			IdleDelaySeconds = 1.0f;
+			ShowCardTooltip = true;
+			Draggable = false;
+			RememberCustomPosition = false;
 		}
 
 		// ── UI ──────────────────────────────────────────────────────────────

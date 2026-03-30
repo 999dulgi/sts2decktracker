@@ -2,6 +2,9 @@ using System;
 using Godot;
 using MegaCrit.Sts2.Core.Localization.Fonts;
 using MegaCrit.Sts2.Core.Nodes.GodotExtensions;
+using MegaCrit.Sts2.Core.HoverTips;
+using MegaCrit.Sts2.Core.Nodes.HoverTips;
+using HarmonyLib;
 
 namespace sts2decktracker
 {
@@ -9,6 +12,7 @@ namespace sts2decktracker
 	{
 		private ArrowInputRow _drawPileX, _drawPileY, _discardPileX, _discardPileY, _cardSize, _fadeDelay;
 		private NSlider _idleOpacitySlider, _activeOpacitySlider;
+		private TextureButton _draggableTickbox, _showCardTooltipTickbox, _rememberCustomPositionTickbox;
 		private ModSettings _settings;
 		private VBoxContainer _vbox;
 
@@ -32,18 +36,30 @@ namespace sts2decktracker
 
 			_vbox.AddChild(new HSeparator());
 
-			_drawPileX = new ArrowInputRow(); _vbox.AddChild(_drawPileX);
-			_drawPileY = new ArrowInputRow(); _vbox.AddChild(_drawPileY);
-			_discardPileX = new ArrowInputRow(); _vbox.AddChild(_discardPileX);
-			_discardPileY = new ArrowInputRow(); _vbox.AddChild(_discardPileY);
-			_cardSize = new ArrowInputRow(); _vbox.AddChild(_cardSize);
-			_fadeDelay = new ArrowInputRow(); _vbox.AddChild(_fadeDelay);
+			_drawPileX = new ArrowInputRow();
+			_drawPileY = new ArrowInputRow();
+			_discardPileX = new ArrowInputRow();
+			_discardPileY = new ArrowInputRow();
+			_cardSize = new ArrowInputRow();
+			_fadeDelay = new ArrowInputRow();
+			_vbox.AddChild(_drawPileX);
+			_vbox.AddChild(_drawPileY);
+			_vbox.AddChild(_discardPileX);
+			_vbox.AddChild(_discardPileY);
+			_vbox.AddChild(_cardSize);
+			_vbox.AddChild(_fadeDelay);
 
 			_vbox.AddChild(new HSeparator());
 
 			var sliderScene = GD.Load<PackedScene>("res://scenes/ui/volume_slider.tscn");
 			_idleOpacitySlider = AddSliderRow("Idle Opacity %", sliderScene);
 			_activeOpacitySlider = AddSliderRow("Active Opacity %", sliderScene);
+
+			_vbox.AddChild(new HSeparator());
+
+			_draggableTickbox = AddTickboxRow("Drag CardList", "Set card panel draggable");
+			_showCardTooltipTickbox = AddTickboxRow("Show Card", "Show card when you hover the card image");
+			_rememberCustomPositionTickbox = AddTickboxRow("Remember CardList Position", "Remember card panel position when you enable Drag CardList.");
 
 			_vbox.AddChild(new HSeparator());
 
@@ -61,6 +77,13 @@ namespace sts2decktracker
 
 			_settings = ModSettings.Load();
 			RefreshValues();
+			
+			_drawPileX.SetupTooltip("X cordinate of draw pile panel.\nCard panel width calculated as card size * 11(12) + 8(16) + margin 20.\nThe number in () is for star cost");
+			_drawPileY.SetupTooltip("Y cordinate of draw pile panel");
+			_discardPileX.SetupTooltip("X cordinate of discard pile panel.\nCard panel width calculated as card size * 11(12) + 8(16) + margin 10.\nThe number in () is for star cost");
+			_discardPileY.SetupTooltip("Y cordinate of discard pile panel");
+			_cardSize.SetupTooltip("Card size is used to determine the value of other elements");
+			_fadeDelay.SetupTooltip("Transition time from active to idle state");
 
 			_drawPileX.ValueChanged += v => _settings.DrawPileX = (int)v;
 			_drawPileY.ValueChanged += v => _settings.DrawPileY = (int)v;
@@ -73,6 +96,10 @@ namespace sts2decktracker
 
 			applyButton.Released += _ => OnApplyPressed();
 			resetButton.Released += _ => OnResetPressed();
+
+			_draggableTickbox.Toggled += v => _settings.Draggable = v;
+			_showCardTooltipTickbox.Toggled += v => _settings.ShowCardTooltip = v;
+			_rememberCustomPositionTickbox.Toggled += v => _settings.RememberCustomPosition = v;
 		}
 
 		private static NButton BuildGameButton(string text)
@@ -125,18 +152,37 @@ namespace sts2decktracker
 			return btn;
 		}
 
-		private NSlider AddSliderRow(string label, PackedScene sliderScene)
-		{
+		private NSlider AddSliderRow(string label, PackedScene sliderScene, string tooltip = "")
+		{			
 			var row = new HBoxContainer();
 			row.AddThemeConstantOverride("separation", 8);
-
+			
 			var lbl = new Label();
 			lbl.CustomMinimumSize = new Vector2(150, 0);
 			lbl.SizeFlagsVertical = SizeFlags.ShrinkCenter;
 			lbl.AddThemeFontSizeOverride("font_size", 18);
 			lbl.Text = label;
+			lbl.MouseFilter = MouseFilterEnum.Stop;
 			row.AddChild(lbl);
 			lbl.ApplyLocaleFontSubstitution(FontType.Regular, "font");
+			
+			if (tooltip != "")
+			{	
+				var tip = new HoverTip();
+				object box = tip;
+				AccessTools.Property(typeof(HoverTip), nameof(HoverTip.Title)).SetValue(box, label);
+				AccessTools.Property(typeof(HoverTip), nameof(HoverTip.Description)).SetValue(box, tooltip);
+				lbl.MouseEntered += () => 
+				{
+					var nHoverTipSet = NHoverTipSet.CreateAndShow(lbl, (HoverTip)box);
+					nHoverTipSet.GlobalPosition = lbl.GlobalPosition + new Vector2(100.0f, 0.0f);
+				};
+				lbl.MouseExited += () =>
+				{
+					NHoverTipSet.Remove(lbl);
+				};
+
+			}
 
 			var slider = sliderScene.Instantiate<NSlider>();
 			slider.SizeFlagsHorizontal = SizeFlags.ExpandFill;
@@ -159,6 +205,55 @@ namespace sts2decktracker
 			return slider;
 		}
 
+		private TextureButton AddTickboxRow(string label, string tooltip = "")
+		{
+			var row = new HBoxContainer();
+			row.AddThemeConstantOverride("separation", 8);
+
+			var ticked = GD.Load<Texture2D>("res://images/atlases/ui_atlas.sprites/checkbox_ticked.tres");
+			var unticked = GD.Load<Texture2D>("res://images/atlases/ui_atlas.sprites/checkbox_unticked.tres");
+
+			var tickbox = new TextureButton();
+			tickbox.ToggleMode = true;
+			tickbox.TextureNormal = unticked;
+			tickbox.TexturePressed = ticked;
+			tickbox.TextureHover = unticked;
+			tickbox.IgnoreTextureSize = true;
+			tickbox.StretchMode = TextureButton.StretchModeEnum.KeepAspectCentered;
+			tickbox.CustomMinimumSize = new Vector2(40, 40);
+			tickbox.Modulate = new Color(1.0f, 1.0f, 1.0f, 1f);
+			tickbox.FocusMode = Control.FocusModeEnum.None;
+			row.AddChild(tickbox);
+
+			var lbl = new Label { Text = label };
+			lbl.VerticalAlignment = VerticalAlignment.Center;
+			lbl.AddThemeFontSizeOverride("font_size", 18);
+			lbl.ApplyLocaleFontSubstitution(FontType.Regular, "font");
+			lbl.MouseFilter = MouseFilterEnum.Stop;
+			row.AddChild(lbl);
+
+			if (tooltip != "")
+			{	
+				var tip = new HoverTip();
+				object box = tip;
+				AccessTools.Property(typeof(HoverTip), nameof(HoverTip.Title)).SetValue(box, label);
+				AccessTools.Property(typeof(HoverTip), nameof(HoverTip.Description)).SetValue(box, tooltip);
+				lbl.MouseEntered += () => 
+				{
+					var nHoverTipSet = NHoverTipSet.CreateAndShow(lbl, (HoverTip)box);
+					nHoverTipSet.GlobalPosition = lbl.GlobalPosition + new Vector2(100.0f, 0.0f);
+				};
+				lbl.MouseExited += () =>
+				{
+					NHoverTipSet.Remove(lbl);
+				};
+
+			}
+
+			_vbox.AddChild(row);
+			return tickbox;
+		}
+
 		public void Refresh()
 		{
 			_settings = ModSettings.Load();
@@ -172,9 +267,12 @@ namespace sts2decktracker
 			_discardPileX.Setup("Discard Pile X", _settings.DiscardPileX, 0, 1920);
 			_discardPileY.Setup("Discard Pile Y", _settings.DiscardPileY, 0, 1080);
 			_cardSize.Setup("Card Size", _settings.CardSize, 12, 48);
-			_fadeDelay.Setup("Fade Delay (s)", _settings.IdleDelaySeconds, 0f, 10f, step: 0.1f);
+			_fadeDelay.Setup("Fade Time (s)", _settings.IdleDelaySeconds, 0f, 10f, step: 0.1f);
 			_idleOpacitySlider.Value = _settings.IdleOpacity * 100;
 			_activeOpacitySlider.Value = _settings.ActiveOpacity * 100;
+			_draggableTickbox.ButtonPressed = _settings.Draggable;
+			_showCardTooltipTickbox.ButtonPressed = _settings.ShowCardTooltip;
+			_rememberCustomPositionTickbox.ButtonPressed = _settings.RememberCustomPosition;
 		}
 
 		private void OnApplyPressed()
