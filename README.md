@@ -33,7 +33,10 @@ The config file will be created automatically on first run with default values.
   "cardSize": 28,
   "idleOpacity": 0.3,
   "activeOpacity": 1.0,
-  "idleDelaySeconds": 1.0
+  "idleDelaySeconds": 1.0,
+  "draggable": false,
+  "showCardTooltip": false,
+  "rememberCustomPosition": false
 }
 ```
 
@@ -44,6 +47,9 @@ The config file will be created automatically on first run with default values.
 - **cardSize**: Size of each card in the deck tracker panels and all text sizes
 - **idleOpacity/activeOpacity**: Opacity of cards when they haven't changed and when they have changed (0.0 = fully transparent, 1.0 = fully opaque)
 - **idleDelaySeconds**: Delay in seconds before opacity changes after a card has been modified
+- **draggable**: Set card list draggable
+- **showCardTooltip**: Show card info when you hover card image
+- **rememberCustomPosition**: Remember the position after exit the game when you enable draggable
 
 ### Cautions
 
@@ -90,6 +96,9 @@ Slay the Spire 2 덱 트레커 모드입니다.
   "idleOpacity": 0.3,
   "activeOpacity": 1.0,
   "idleDelaySeconds": 1.0
+  "draggable": false,
+  "showCardTooltip": false,
+  "rememberCustomPosition": false
 }
 ```
 
@@ -100,6 +109,10 @@ Slay the Spire 2 덱 트레커 모드입니다.
 - **cardSize**: 덱 트래커 패널의 각 카드 크기와 모든 텍스트 크기
 - **idleOpacity/activeOpacity**: 카드가 변경되지 않았을 때와 변경되었을 때의 투명도 (0.0 = 완전 투명, 1.0 = 완전 불투명)
 - **idleDelaySeconds**: 카드가 변경된 후 투명도가 변경되기까지의 대기 시간 (초)
+- **draggable**: 카드 리스트의 드래그 가능 여부
+- **showCardTooltip**: 카드 이미지에 마우스 커서를 올리면 카드 정보를 보여줄지 여부
+- **rememberCustomPosition**: draggable을 활성화 했을때 게임을 종료했을 때 카드 리스트의 위치를 저장할지 여부
+
 
 ### 주의사항
 
