@@ -14,6 +14,8 @@ namespace sts2decktracker
 		private static CardListPanel _drawPilePanel;
 		private static CardListPanel _discardPilePanel;
 		private static TopCardPanel _topCardPanel;
+		internal static Vector2? _savedDrawCustomPos;
+		internal static Vector2? _savedDiscardCustomPos;
 
 		public static void Postfix(NCombatUi __instance)
 		{
@@ -21,28 +23,37 @@ namespace sts2decktracker
 			{
 				var settings = ModSettings.Load();
 
+				var drawPos = new Vector2(settings.DrawPileX, settings.DrawPileY);
 				_drawPilePanel = new CardListPanel();
 				_drawPilePanel.SetPileType(PileType.Draw);
 				_drawPilePanel.SetSettings(settings);
+				_drawPilePanel.SetDefaultPosition(drawPos);
 				_drawPilePanel.CustomMinimumSize = new Vector2(settings.PanelWidth, settings.PanelHeight);
 				_drawPilePanel.Size = new Vector2(settings.PanelWidth, settings.PanelHeight);
-				_drawPilePanel.Position = new Vector2(settings.DrawPileX, settings.DrawPileY);
+				_drawPilePanel.Position = drawPos;
 				__instance.AddChild(_drawPilePanel);
 
 				_topCardPanel = new TopCardPanel();
 				_topCardPanel.SetSettings(settings);
+				_topCardPanel.SetDrawPilePanel(_drawPilePanel);
 				_topCardPanel.CustomMinimumSize = new Vector2(settings.PanelWidth, settings.PanelHeight);
 				_topCardPanel.Size = new Vector2(settings.PanelWidth, settings.PanelHeight);
-				_topCardPanel.Position = new Vector2(settings.DrawPileX + settings.PanelWidth + 4, settings.DrawPileY);
 				__instance.AddChild(_topCardPanel);
 
+				var discardPos = new Vector2(settings.DiscardPileX, settings.DiscardPileY);
 				_discardPilePanel = new CardListPanel();
 				_discardPilePanel.SetPileType(PileType.Discard);
 				_discardPilePanel.SetSettings(settings);
+				_discardPilePanel.SetDefaultPosition(discardPos);
 				_discardPilePanel.CustomMinimumSize = new Vector2(settings.PanelWidth, settings.PanelHeight);
 				_discardPilePanel.Size = new Vector2(settings.PanelWidth, settings.PanelHeight);
-				_discardPilePanel.Position = new Vector2(settings.DiscardPileX, settings.DiscardPileY);
+				_discardPilePanel.Position = discardPos;
 				__instance.AddChild(_discardPilePanel);
+
+				if (_savedDrawCustomPos.HasValue)
+					_drawPilePanel.SetCustomPosition(_savedDrawCustomPos.Value);
+				if (_savedDiscardCustomPos.HasValue)
+					_discardPilePanel.SetCustomPosition(_savedDiscardCustomPos.Value);
 			}
 			catch (System.Exception ex)
 			{
@@ -58,17 +69,17 @@ namespace sts2decktracker
 				if (_drawPilePanel != null && IsNodeValid(_drawPilePanel))
 				{
 					_drawPilePanel.SetSettings(settings);
+					_drawPilePanel.SetDefaultPosition(new Vector2(settings.DrawPileX, settings.DrawPileY));
 					_drawPilePanel.CustomMinimumSize = new Vector2(settings.PanelWidth, settings.PanelHeight);
 					_drawPilePanel.Size = new Vector2(settings.PanelWidth, settings.PanelHeight);
-					_drawPilePanel.Position = new Vector2(settings.DrawPileX, settings.DrawPileY);
 				}
 
 				if (_discardPilePanel != null && IsNodeValid(_discardPilePanel))
 				{
 					_discardPilePanel.SetSettings(settings);
+					_discardPilePanel.SetDefaultPosition(new Vector2(settings.DiscardPileX, settings.DiscardPileY));
 					_discardPilePanel.CustomMinimumSize = new Vector2(settings.PanelWidth, settings.PanelHeight);
 					_discardPilePanel.Size = new Vector2(settings.PanelWidth, settings.PanelHeight);
-					_discardPilePanel.Position = new Vector2(settings.DiscardPileX, settings.DiscardPileY);
 				}
 
 				if (_topCardPanel != null && GodotObject.IsInstanceValid(_topCardPanel))
@@ -76,12 +87,47 @@ namespace sts2decktracker
 					_topCardPanel.SetSettings(settings);
 					_topCardPanel.CustomMinimumSize = new Vector2(settings.PanelWidth, settings.PanelHeight);
 					_topCardPanel.Size = new Vector2(settings.PanelWidth, settings.PanelHeight);
-					_topCardPanel.Position = new Vector2(settings.DrawPileX + settings.PanelWidth + 4, settings.DrawPileY);
 				}
 			}
 			catch (System.Exception ex)
 			{
 				GD.PrintErr($"[DeckTrackerInjectionPatch] Failed to apply settings: {ex.Message}");
+			}
+		}
+
+		internal static void OnReturnToMainMenu()
+		{
+			try
+			{
+				if (IsNodeValid(_drawPilePanel) && _drawPilePanel.GetCustomPosition().HasValue)
+					_savedDrawCustomPos = _drawPilePanel.GetCustomPosition();
+				if (IsNodeValid(_discardPilePanel) && _discardPilePanel.GetCustomPosition().HasValue)
+					_savedDiscardCustomPos = _discardPilePanel.GetCustomPosition();
+
+				var settings = ModSettings.Load();
+				if (settings.RememberCustomPosition)
+				{
+					if (IsNodeValid(_drawPilePanel) && _drawPilePanel.GetCustomPosition().HasValue)
+					{
+						var contentPos = _drawPilePanel.GetContentPosition();
+						settings.DrawPileX = (int)contentPos.X;
+						settings.DrawPileY = (int)contentPos.Y;
+					}
+					if (IsNodeValid(_discardPilePanel) && _discardPilePanel.GetCustomPosition().HasValue)
+					{
+						var contentPos = _discardPilePanel.GetContentPosition();
+						settings.DiscardPileX = (int)contentPos.X;
+						settings.DiscardPileY = (int)contentPos.Y;
+					}
+					settings.Save();
+				}
+
+				_savedDrawCustomPos = null;
+				_savedDiscardCustomPos = null;
+			}
+			catch (System.Exception ex)
+			{
+				GD.PrintErr($"[DeckTrackerInjectionPatch] OnReturnToMainMenu failed: {ex.Message}");
 			}
 		}
 
@@ -139,6 +185,21 @@ namespace sts2decktracker
 				foreach (var card in cards)
 					TopCardTracker.MarkAsIntendedTop(card);
 			}
+		}
+	}
+
+	[HarmonyPatch]
+	public static class NGameReturnToMenuPatch
+	{
+		static System.Reflection.MethodInfo TargetMethod()
+		{
+			var type = AccessTools.TypeByName("MegaCrit.Sts2.Core.Nodes.NGame");
+			return AccessTools.Method(type, "ReturnToMainMenu");
+		}
+
+		static void Prefix()
+		{
+			DeckTrackerInjectionPatch.OnReturnToMainMenu();
 		}
 	}
 

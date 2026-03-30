@@ -7,6 +7,8 @@ using MegaCrit.Sts2.Core.Localization.Fonts;
 using MegaCrit.Sts2.Core.Helpers;
 using MegaCrit.Sts2.Core.Helpers.Models;
 using MegaCrit.Sts2.Core.Context;
+using MegaCrit.Sts2.Core.HoverTips;
+using MegaCrit.Sts2.Core.Nodes.HoverTips;
 
 namespace sts2decktracker
 {
@@ -27,6 +29,21 @@ namespace sts2decktracker
         private MegaCrit.Sts2.Core.Entities.Players.Player _currentPlayer = null;
         private static Font _KreonRegularFont;
         private static Font KreonRegular => _KreonRegularFont ??= ResourceLoader.Load<Font>("res://fonts/kreon_regular.ttf");
+        private Control _dragBar;
+        private Control _dragBarContainer;
+        private Control _contentContainer;
+        private bool _isDragging = false;
+        private Vector2 _dragOffset;
+        private Vector2 _defaultPosition;
+        private bool _hasCustomPosition = false;
+        private Vector2 _customPosition;
+        private float _dragBarOpacity = 0f;
+        private const float DragBarFadeSpeed = 8f;
+        private const int InnerSeparation = 8;
+        private CardModel _hoveredCard = null;
+        private Control _hoveredClip = null;
+        private readonly System.Collections.Generic.List<(CardModel card, Control clip, System.Collections.Generic.List<IHoverTip> tips)> _cardHoverData = new();
+        private readonly System.Collections.Generic.Dictionary<CardModel, int> _cardSnapshot = new();
 
         public void SetPileType(PileType pileType)
         {
@@ -39,7 +56,58 @@ namespace sts2decktracker
             _targetOpacity = settings?.IdleOpacity ?? 0.3f;
             _currentOpacity = _targetOpacity;
             _idleDelaySeconds = settings?.IdleDelaySeconds ?? 2.0f;
-            Modulate = new Color(1, 1, 1, _currentOpacity);
+            if (_dragBarContainer != null && settings != null)
+                _dragBarContainer.CustomMinimumSize = new Vector2(settings.CardImageWidth, 0);
+            if (_contentContainer != null)
+                _contentContainer.Modulate = new Color(1, 1, 1, _currentOpacity);
+            if (IsInsideTree()) UpdatePosition();
+        }
+
+        public Vector2? GetCustomPosition() => _hasCustomPosition ? _customPosition : null;
+
+        public Vector2 GetContentPosition()
+        {
+            var panelPos = _hasCustomPosition ? _customPosition : GlobalPosition;
+            if ((_settings?.Draggable ?? true) && _dragBarContainer != null)
+            {
+                float barHeight = _dragBarContainer.Size.Y > 0
+                    ? _dragBarContainer.Size.Y
+                    : _dragBarContainer.GetCombinedMinimumSize().Y;
+                return panelPos + new Vector2(0, barHeight + InnerSeparation);
+            }
+            return panelPos;
+        }
+
+        public void SetCustomPosition(Vector2 pos)
+        {
+            _hasCustomPosition = true;
+            _customPosition = pos;
+            if (IsInsideTree()) GlobalPosition = pos;
+        }
+
+        public void SetDefaultPosition(Vector2 pos)
+        {
+            _defaultPosition = pos;
+            if (IsInsideTree()) UpdatePosition();
+        }
+
+        private void UpdatePosition()
+        {
+            if (_hasCustomPosition)
+            {
+                GlobalPosition = _customPosition;
+                return;
+            }
+            bool draggable = _settings?.Draggable ?? true;
+            if (!draggable || _dragBarContainer == null)
+            {
+                GlobalPosition = _defaultPosition;
+                return;
+            }
+            float barHeight = _dragBarContainer.Size.Y > 0
+                ? _dragBarContainer.Size.Y
+                : _dragBarContainer.GetCombinedMinimumSize().Y;
+            GlobalPosition = _defaultPosition - new Vector2(0, barHeight + InnerSeparation);
         }
 
         private static void SetMouseIgnoreRecursive(Node node)
@@ -76,6 +144,35 @@ namespace sts2decktracker
             innerContainer.AddThemeConstantOverride("separation", 8);
             marginContainer.AddChild(innerContainer);
 
+            var dragBarRow = new HBoxContainer
+            {
+                SizeFlagsHorizontal = SizeFlags.ShrinkBegin,
+                Modulate = new Color(1, 1, 1, 0f),
+            };
+            dragBarRow.AddThemeConstantOverride("separation", 4);
+            _dragBarContainer = dragBarRow;
+            if (_settings != null)
+                _dragBarContainer.CustomMinimumSize = new Vector2(_settings.CardImageWidth, 0);
+            innerContainer.AddChild(dragBarRow);
+
+            _dragBar = new Control
+            {
+                CustomMinimumSize = new Vector2(0, 18),
+                SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            };
+            var dragBg = new ColorRect
+            {
+                Color = new Color(0f, 0f, 0f, 0.45f),
+                AnchorRight = 1f, AnchorBottom = 1f,
+                MouseFilter = MouseFilterEnum.Ignore
+            };
+            _dragBar.AddChild(dragBg);
+            dragBarRow.AddChild(_dragBar);
+
+            var resetBtn = new Button { Text = "↺", CustomMinimumSize = new Vector2(22, 18), FocusMode = FocusModeEnum.None };
+            resetBtn.Pressed += () => { _hasCustomPosition = false; UpdatePosition(); };
+            dragBarRow.AddChild(resetBtn);
+
             _cardList = new VBoxContainer
             {
                 SizeFlagsHorizontal = SizeFlags.ExpandFill,
@@ -85,36 +182,103 @@ namespace sts2decktracker
             _cardList.AddThemeConstantOverride("separation", 3);
             innerContainer.AddChild(_cardList);
 
+            _contentContainer = mainContainer;
+
             SetMouseIgnoreRecursive(this);
+
+            _dragBar.MouseFilter = MouseFilterEnum.Stop;
+            resetBtn.MouseFilter = MouseFilterEnum.Stop;
+            _dragBar.GuiInput += (InputEvent e) =>
+            {
+                if (e is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left)
+                {
+                    if (mb.Pressed)
+                    {
+                        _isDragging = true;
+                        _dragOffset = GetGlobalMousePosition() - GlobalPosition;
+                    }
+                    else
+                    {
+                        _isDragging = false;
+                        _hasCustomPosition = true;
+                        _customPosition = GlobalPosition;
+                    }
+                }
+            };
+
+            Callable.From(UpdatePosition).CallDeferred();
         }
 
-        private void OnPileContentsChanged()
-        {
-            if (_currentPile != null)
-            {
-                if (_pileType == PileType.Draw)
-                    TopCardTracker.PruneCards(_currentPile);
-                UpdateCardList(_cardList, _currentPile);
-                _targetOpacity = _settings?.ActiveOpacity ?? 1.0f;
-                _timeSinceLastChange = 0f;
-            }
-        }
 
         public override void _Process(double delta)
         {
+            if (_isDragging && (_settings?.Draggable ?? true))
+                GlobalPosition = GetGlobalMousePosition() - _dragOffset;
+
+            // Drag bar opacity: fade in on hover, fade out otherwise
+            if (_dragBarContainer != null)
+            {
+                bool draggable = _settings?.Draggable ?? true;
+                _dragBarContainer.Visible = draggable;
+                if (draggable)
+                {
+                    bool isHovered = new Rect2(Vector2.Zero, _dragBarContainer.Size).HasPoint(
+                        _dragBarContainer.GetLocalMousePosition());
+                    float targetDragBarOpacity = isHovered ? 1f : 0f;
+                    _dragBarOpacity = Mathf.Lerp(_dragBarOpacity, targetDragBarOpacity, DragBarFadeSpeed * (float)delta);
+                    _dragBarContainer.Modulate = new Color(1, 1, 1, _dragBarOpacity);
+                }
+            }
+
+            // Card hover tooltip detection
+            if (!(_settings?.ShowCardTooltip ?? true) && _hoveredCard != null)
+            {
+                if (_hoveredClip != null && GodotObject.IsInstanceValid(_hoveredClip))
+                    NHoverTipSet.Remove(_hoveredClip);
+                _hoveredCard = null;
+                _hoveredClip = null;
+            }
+            else if (_cardHoverData.Count > 0 && (_settings?.ShowCardTooltip ?? true))
+            {
+                CardModel newHovered = null;
+                Control newHoveredClip = null;
+                System.Collections.Generic.List<IHoverTip> newHoveredTips = null;
+                var mousePos = GetGlobalMousePosition();
+                foreach (var entry in _cardHoverData)
+                {
+                    if (GodotObject.IsInstanceValid(entry.clip))
+                    {
+                        var rect = new Rect2(entry.clip.GlobalPosition, entry.clip.Size);
+                        if (rect.HasPoint(mousePos))
+                        {
+                            newHovered = entry.card;
+                            newHoveredClip = entry.clip;
+                            newHoveredTips = entry.tips;
+                            break;
+                        }
+                    }
+                }
+                if (newHovered != _hoveredCard)
+                {
+                    if (_hoveredClip != null && GodotObject.IsInstanceValid(_hoveredClip))
+                        NHoverTipSet.Remove(_hoveredClip);
+                    if (newHovered != null)
+                        NHoverTipSet.CreateAndShow(newHoveredClip, newHoveredTips, HoverTip.GetHoverTipAlignment(newHoveredClip));
+                    _hoveredCard = newHovered;
+                    _hoveredClip = newHoveredClip;
+                }
+            }
+
             if (Math.Abs(_currentOpacity - _targetOpacity) > 0.01f)
             {
                 _currentOpacity = Mathf.Lerp(_currentOpacity, _targetOpacity, OpacityTransitionSpeed * (float)delta);
-                Modulate = new Color(1, 1, 1, _currentOpacity);
+                if (_contentContainer != null)
+                    _contentContainer.Modulate = new Color(1, 1, 1, _currentOpacity);
             }
 
             if (CombatManager.Instance == null || !CombatManager.Instance.IsInProgress)
             {
-                if (_currentPile != null)
-                {
-                    _currentPile.ContentsChanged -= OnPileContentsChanged;
-                    _currentPile = null;
-                }
+                _currentPile = null;
                 _currentPlayer = null;
                 _combatStartLogged = false;
                 return;
@@ -151,12 +315,33 @@ namespace sts2decktracker
 
             if (_currentPile != pile)
             {
-                if (_currentPile != null)
-                    _currentPile.ContentsChanged -= OnPileContentsChanged;
-
                 _currentPile = pile;
-                _currentPile.ContentsChanged += OnPileContentsChanged;
                 UpdateCardList(_cardList, _currentPile);
+                _targetOpacity = _settings?.ActiveOpacity ?? 1.0f;
+                _timeSinceLastChange = 0f;
+            }
+            else if (_currentPile != null)
+            {
+                bool changed = _currentPile.Cards.Count != _cardSnapshot.Count;
+                if (!changed)
+                {
+                    foreach (var c in _currentPile.Cards)
+                    {
+                        if (!_cardSnapshot.TryGetValue(c, out int savedHash) || GetCardHash(c) != savedHash)
+                        {
+                            changed = true;
+                            break;
+                        }
+                    }
+                }
+                if (changed)
+                {
+                    if (_pileType == PileType.Draw)
+                        TopCardTracker.PruneCards(_currentPile);
+                    UpdateCardList(_cardList, _currentPile);
+                    _targetOpacity = _settings?.ActiveOpacity ?? 1.0f;
+                    _timeSinceLastChange = 0f;
+                }
             }
 
             _timeSinceLastChange += (float)delta;
@@ -168,6 +353,16 @@ namespace sts2decktracker
         {
             if (container == null || pile == null)
                 return;
+
+            _cardHoverData.Clear();
+            if (_hoveredCard != null && _hoveredClip != null && GodotObject.IsInstanceValid(_hoveredClip))
+                NHoverTipSet.Remove(_hoveredClip);
+            _hoveredCard = null;
+            _hoveredClip = null;
+
+            _cardSnapshot.Clear();
+            foreach (var c in pile.Cards)
+                _cardSnapshot[c] = GetCardHash(c);
 
             foreach (Node child in container.GetChildren())
             {
@@ -263,6 +458,10 @@ namespace sts2decktracker
                             ClipContents = true,
                             MouseFilter = Control.MouseFilterEnum.Ignore
                         };
+                        var capturedCard = card;
+                        var hoverTips = new System.Collections.Generic.List<IHoverTip> { new CardHoverTip(capturedCard) };
+                        hoverTips.AddRange(capturedCard.HoverTips);
+                        _cardHoverData.Add((capturedCard, clipContainer, hoverTips));
 
                         var textureRect = new TextureRect
                         {
@@ -538,12 +737,32 @@ namespace sts2decktracker
                 }
             }
 
-            SetMouseIgnoreRecursive(container);
+            SetMouseIgnoreRecursiveExceptHover(container);
+        }
+
+        private static void SetMouseIgnoreRecursiveExceptHover(Node node)
+        {
+            if (node is Control control && !control.ClipContents)
+                control.MouseFilter = MouseFilterEnum.Ignore;
+            foreach (Node child in node.GetChildren())
+                SetMouseIgnoreRecursiveExceptHover(child);
         }
 
         private static string GetCardDisplayName(CardModel card)
         {
             return card.IsUpgraded ? $"{card.Title}" : card.Title;
+        }
+
+        private static int GetCardHash(CardModel c)
+        {
+            int energyCost = c.EnergyCost.CostsX ? -1 : c.EnergyCost.GetWithModifiers(CostModifiers.All);
+            int starCost = c.HasStarCostX ? -1 : c.GetStarCostWithModifiers();
+            return HashCode.Combine(
+                c.CurrentUpgradeLevel,
+                energyCost,
+                starCost,
+                c.Enchantment?.GetType().GetHashCode() ?? 0
+            );
         }
 
         private static Color GetTitleOutlineColorByRarity(CardRarity rarity)

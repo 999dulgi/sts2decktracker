@@ -24,6 +24,7 @@ namespace sts2decktracker
 
         private Label _headerLabel;
         private HBoxContainer _cardRow;
+        private CardListPanel _drawPilePanel;
         private static Font _KreonRegularFont;
         private static Font KreonRegular => _KreonRegularFont ??= ResourceLoader.Load<Font>("res://fonts/kreon_regular.ttf");
 
@@ -47,6 +48,11 @@ namespace sts2decktracker
             _currentOpacity = _targetOpacity;
             _idleDelaySeconds = settings?.IdleDelaySeconds ?? 2.0f;
             Modulate = new Color(1, 1, 1, _currentOpacity);
+        }
+
+        public void SetDrawPilePanel(CardListPanel panel)
+        {
+            _drawPilePanel = panel;
         }
 
         public override void _Ready()
@@ -374,6 +380,9 @@ namespace sts2decktracker
 
         public override void _Process(double delta)
         {
+            if (_drawPilePanel != null && GodotObject.IsInstanceValid(_drawPilePanel))
+                GlobalPosition = _drawPilePanel.GlobalPosition + new Vector2(_drawPilePanel.Size.X + 4, 0);
+
             if (Math.Abs(_currentOpacity - _targetOpacity) > 0.01f)
             {
                 _currentOpacity = Mathf.Lerp(_currentOpacity, _targetOpacity, OpacityTransitionSpeed * (float)delta);
