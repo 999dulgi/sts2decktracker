@@ -7,6 +7,13 @@ using Godot;
 
 namespace sts2decktracker
 {
+	public enum CardColorMode
+	{
+		None = 0,       // 무색 (모두 cardTitleOutlineCommon)
+		UpgradeEnchant = 1, // 강화/인챈트만 색상 표시
+		Full = 2        // 원래 설정대로 (희귀도 포함)
+	}
+
 	public class ModSettings
 	{
 		[JsonPropertyName("drawPileX")]
@@ -47,6 +54,25 @@ namespace sts2decktracker
 
 		[JsonPropertyName("rememberCustomPosition")]
 		public bool RememberCustomPosition { get; set; } = false;
+
+		[JsonPropertyName("cardColorMode")]
+		public int CardColorModeInt { get; set; } = (int)CardColorMode.Full;
+
+		[JsonIgnore]
+		public CardColorMode CardColorMode
+		{
+			get => (CardColorMode)CardColorModeInt;
+			set => CardColorModeInt = (int)value;
+		}
+
+		[JsonPropertyName("scrollable")]
+		public bool Scrollable { get; set; } = false;
+
+		[JsonPropertyName("scrollableAutoHeight")]
+		public bool ScrollableAutoHeight { get; set; } = true;
+
+		[JsonPropertyName("scrollableHeight")]
+		public int ScrollableHeight { get; set; } = 400;
 
 		public int PanelWidth => CardSize * 11 + 8;
 		public int PanelHeight => CardSize * 20;
@@ -99,6 +125,10 @@ namespace sts2decktracker
 					draggable = Draggable,
 					showCardTooltip = ShowCardTooltip,
 					rememberCustomPosition = RememberCustomPosition,
+					cardColorMode = CardColorModeInt,
+					scrollable = Scrollable,
+					scrollableAutoHeight = ScrollableAutoHeight,
+					scrollableHeight = ScrollableHeight,
 					cardSize = CardSize,
 					idleOpacity = IdleOpacity,
 					activeOpacity = ActiveOpacity,
@@ -126,6 +156,10 @@ namespace sts2decktracker
 			ShowCardTooltip = true;
 			Draggable = false;
 			RememberCustomPosition = false;
+			CardColorMode = CardColorMode.Full;
+			Scrollable = false;
+			ScrollableAutoHeight = true;
+			ScrollableHeight = 400;
 		}
 
 		// ── UI ──────────────────────────────────────────────────────────────

@@ -44,6 +44,7 @@ namespace sts2decktracker
         private Control _hoveredClip = null;
         private readonly System.Collections.Generic.List<(CardModel card, Control clip, System.Collections.Generic.List<IHoverTip> tips)> _cardHoverData = new();
         private readonly System.Collections.Generic.Dictionary<CardModel, int> _cardSnapshot = new();
+        private ScrollContainer _scrollContainer;
 
         public void SetPileType(PileType pileType)
         {
@@ -60,6 +61,7 @@ namespace sts2decktracker
                 _dragBarContainer.CustomMinimumSize = new Vector2(settings.CardImageWidth, 0);
             if (_contentContainer != null)
                 _contentContainer.Modulate = new Color(1, 1, 1, _currentOpacity);
+            ApplyScrollSettings();
             if (IsInsideTree()) UpdatePosition();
         }
 
@@ -110,6 +112,37 @@ namespace sts2decktracker
             GlobalPosition = _defaultPosition - new Vector2(0, barHeight + InnerSeparation);
         }
 
+        private const float ScrollableBottomY = 750f;
+
+        private void ApplyScrollSettings()
+        {
+            if (_scrollContainer == null) return;
+            bool scrollable = _settings?.Scrollable ?? false;
+            if (scrollable)
+            {
+                _scrollContainer.SizeFlagsVertical = SizeFlags.ShrinkBegin;
+                if (_cardList != null) _cardList.SizeFlagsVertical = SizeFlags.ShrinkBegin;
+                UpdateScrollHeight();
+            }
+            else
+            {
+                _scrollContainer.CustomMinimumSize = Vector2.Zero;
+                _scrollContainer.SizeFlagsVertical = SizeFlags.ExpandFill;
+                if (_cardList != null) _cardList.SizeFlagsVertical = SizeFlags.ExpandFill;
+            }
+        }
+
+        private void UpdateScrollHeight()
+        {
+            if (_scrollContainer == null) return;
+            float height;
+            if (_settings?.ScrollableAutoHeight ?? true)
+                height = Mathf.Max(50f, ScrollableBottomY - GlobalPosition.Y);
+            else
+                height = Mathf.Max(50f, _settings?.ScrollableHeight ?? 400);
+            _scrollContainer.CustomMinimumSize = new Vector2(0, height);
+        }
+
         private static void SetMouseIgnoreRecursive(Node node)
         {
             if (node is Control control)
@@ -134,6 +167,7 @@ namespace sts2decktracker
             AddChild(mainContainer);
 
             var marginContainer = new MarginContainer();
+            marginContainer.SizeFlagsVertical = SizeFlags.ExpandFill;
             marginContainer.AddThemeConstantOverride("margin_left", 10);
             marginContainer.AddThemeConstantOverride("margin_right", 10);
             marginContainer.AddThemeConstantOverride("margin_top", 10);
@@ -141,6 +175,7 @@ namespace sts2decktracker
             mainContainer.AddChild(marginContainer);
 
             var innerContainer = new VBoxContainer();
+            innerContainer.SizeFlagsVertical = SizeFlags.ExpandFill;
             innerContainer.AddThemeConstantOverride("separation", 8);
             marginContainer.AddChild(innerContainer);
 
@@ -173,6 +208,15 @@ namespace sts2decktracker
             resetBtn.Pressed += () => { _hasCustomPosition = false; UpdatePosition(); };
             dragBarRow.AddChild(resetBtn);
 
+            _scrollContainer = new ScrollContainer
+            {
+                SizeFlagsHorizontal = SizeFlags.ExpandFill,
+                SizeFlagsVertical = SizeFlags.ExpandFill,
+                HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+                VerticalScrollMode = ScrollContainer.ScrollMode.ShowNever,
+            };
+            innerContainer.AddChild(_scrollContainer);
+
             _cardList = new VBoxContainer
             {
                 SizeFlagsHorizontal = SizeFlags.ExpandFill,
@@ -180,7 +224,7 @@ namespace sts2decktracker
                 Theme = new Theme()
             };
             _cardList.AddThemeConstantOverride("separation", 3);
-            innerContainer.AddChild(_cardList);
+            _scrollContainer.AddChild(_cardList);
 
             _contentContainer = mainContainer;
 
@@ -188,6 +232,7 @@ namespace sts2decktracker
 
             _dragBar.MouseFilter = MouseFilterEnum.Stop;
             resetBtn.MouseFilter = MouseFilterEnum.Stop;
+            _scrollContainer.MouseFilter = MouseFilterEnum.Pass;
             _dragBar.GuiInput += (InputEvent e) =>
             {
                 if (e is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left)
@@ -206,7 +251,13 @@ namespace sts2decktracker
                 }
             };
 
-            Callable.From(UpdatePosition).CallDeferred();
+            ApplyScrollSettings();
+            GD.Print($"[CardListPanel:{_pileType}] _Ready complete. Panel size={Size}, Visible={Visible}");
+            Callable.From(() =>
+            {
+                GD.Print($"[CardListPanel:{_pileType}] Deferred layout check: Panel={Size}, scrollContainer={_scrollContainer?.Size}, cardList={_cardList?.Size}");
+                UpdatePosition();
+            }).CallDeferred();
         }
 
 
@@ -214,6 +265,9 @@ namespace sts2decktracker
         {
             if (_isDragging && (_settings?.Draggable ?? true))
                 GlobalPosition = GetGlobalMousePosition() - _dragOffset;
+
+            if (_settings?.Scrollable ?? false)
+                UpdateScrollHeight();
 
             // Drag bar opacity: fade in on hover, fade out otherwise
             if (_dragBarContainer != null)
@@ -244,12 +298,15 @@ namespace sts2decktracker
                 Control newHoveredClip = null;
                 System.Collections.Generic.List<IHoverTip> newHoveredTips = null;
                 var mousePos = GetGlobalMousePosition();
+                var scrollClip = _scrollContainer != null
+                    ? new Rect2(_scrollContainer.GlobalPosition, _scrollContainer.Size)
+                    : (Rect2?)null;
                 foreach (var entry in _cardHoverData)
                 {
                     if (GodotObject.IsInstanceValid(entry.clip))
                     {
                         var rect = new Rect2(entry.clip.GlobalPosition, entry.clip.Size);
-                        if (rect.HasPoint(mousePos))
+                        if (rect.HasPoint(mousePos) && (scrollClip == null || scrollClip.Value.HasPoint(mousePos)))
                         {
                             newHovered = entry.card;
                             newHoveredClip = entry.clip;
@@ -315,6 +372,7 @@ namespace sts2decktracker
 
             if (_currentPile != pile)
             {
+                GD.Print($"[CardListPanel:{_pileType}] Pile changed, calling UpdateCardList");
                 _currentPile = pile;
                 UpdateCardList(_cardList, _currentPile);
                 _targetOpacity = _settings?.ActiveOpacity ?? 1.0f;
@@ -353,6 +411,8 @@ namespace sts2decktracker
         {
             if (container == null || pile == null)
                 return;
+
+            GD.Print($"[CardListPanel:{_pileType}] UpdateCardList: pile.Cards.Count={pile.Cards.Count}, panel Visible={Visible}, size={Size}");
 
             _cardHoverData.Clear();
             if (_hoveredCard != null && _hoveredClip != null && GodotObject.IsInstanceValid(_hoveredClip))
@@ -534,20 +594,31 @@ namespace sts2decktracker
                         Color titleColor;
                         Color titleOutlineColor;
 
-                        if (card.Enchantment != null)
+                        var colorMode = _settings?.CardColorMode ?? CardColorMode.Full;
+                        if (colorMode == CardColorMode.None)
+                        {
+                            titleColor = StsColors.cream;
+                            titleOutlineColor = StsColors.cardTitleOutlineCommon;
+                        }
+                        else if (card.Enchantment != null)
                         {
                             titleColor = new Color(0.85f, 0.6f, 1f, 1f);
                             titleOutlineColor = new Color(0.3f, 0.05f, 0.45f, 1f);
                         }
-                        else if (card.CurrentUpgradeLevel == 0)
+                        else if (card.CurrentUpgradeLevel > 0)
+                        {
+                            titleColor = StsColors.green;
+                            titleOutlineColor = StsColors.cardTitleOutlineSpecial;
+                        }
+                        else if (colorMode == CardColorMode.Full)
                         {
                             titleColor = StsColors.cream;
                             titleOutlineColor = GetTitleOutlineColorByRarity(card.Rarity);
                         }
-                        else
+                        else // UpgradeEnchant - 일반 카드는 무색
                         {
-                            titleColor = StsColors.green;
-                            titleOutlineColor = StsColors.cardTitleOutlineSpecial;
+                            titleColor = StsColors.cream;
+                            titleOutlineColor = StsColors.cardTitleOutlineCommon;
                         }
 
                         nameLabel.AddThemeColorOverride("font_color", titleColor);
@@ -738,6 +809,7 @@ namespace sts2decktracker
             }
 
             SetMouseIgnoreRecursiveExceptHover(container);
+            GD.Print($"[CardListPanel:{_pileType}] UpdateCardList done: container children={container.GetChildCount()}, cardList size={_cardList?.Size}, scrollContainer size={_scrollContainer?.Size}");
         }
 
         private static void SetMouseIgnoreRecursiveExceptHover(Node node)

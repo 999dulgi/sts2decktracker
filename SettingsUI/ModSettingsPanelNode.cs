@@ -12,7 +12,9 @@ namespace sts2decktracker
 	{
 		private ArrowInputRow _drawPileX, _drawPileY, _discardPileX, _discardPileY, _cardSize, _fadeDelay;
 		private NSlider _idleOpacitySlider, _activeOpacitySlider;
-		private TextureButton _draggableTickbox, _showCardTooltipTickbox, _rememberCustomPositionTickbox;
+		private TextureButton _draggableTickbox, _showCardTooltipTickbox, _rememberCustomPositionTickbox, _scrollableTickbox, _scrollableAutoHeightTickbox;
+		private ArrowInputRow _scrollableHeightRow;
+		private OptionButton _cardColorModeDropdown;
 		private ModSettings _settings;
 		private VBoxContainer _vbox;
 
@@ -60,6 +62,12 @@ namespace sts2decktracker
 			_draggableTickbox = AddTickboxRow("Drag CardList", "Set card panel draggable");
 			_showCardTooltipTickbox = AddTickboxRow("Show Card", "Show card when you hover the card image");
 			_rememberCustomPositionTickbox = AddTickboxRow("Remember CardList Position", "Remember card panel position when you enable Drag CardList.");
+			_scrollableTickbox = AddTickboxRow("Scrollable", "Limit the card list panel height and scroll through cards");
+			_scrollableAutoHeightTickbox = AddTickboxRow("Auto Height", "Auto: height fills down to Y=700. Manual: fixed height value");
+			_scrollableHeightRow = new ArrowInputRow();
+			_vbox.AddChild(_scrollableHeightRow);
+
+			_cardColorModeDropdown = AddDropdownRow("Card Name Color", new[] { "None", "Upgrade & Enchant", "Full (Rarity)" });
 
 			_vbox.AddChild(new HSeparator());
 
@@ -100,6 +108,10 @@ namespace sts2decktracker
 			_draggableTickbox.Toggled += v => _settings.Draggable = v;
 			_showCardTooltipTickbox.Toggled += v => _settings.ShowCardTooltip = v;
 			_rememberCustomPositionTickbox.Toggled += v => _settings.RememberCustomPosition = v;
+			_scrollableTickbox.Toggled += v => { _settings.Scrollable = v; _scrollableAutoHeightTickbox.GetParent<Control>().Visible = v; _scrollableHeightRow.Visible = v && !_settings.ScrollableAutoHeight; };
+			_scrollableAutoHeightTickbox.Toggled += v => { _settings.ScrollableAutoHeight = v; _scrollableHeightRow.Visible = !v; };
+			_scrollableHeightRow.ValueChanged += v => _settings.ScrollableHeight = (int)v;
+			_cardColorModeDropdown.ItemSelected += i => _settings.CardColorMode = (CardColorMode)i;
 		}
 
 		private static NButton BuildGameButton(string text)
@@ -254,6 +266,29 @@ namespace sts2decktracker
 			return tickbox;
 		}
 
+		private OptionButton AddDropdownRow(string label, string[] options, string tooltip = "")
+		{
+			var row = new HBoxContainer();
+			row.AddThemeConstantOverride("separation", 8);
+
+			var lbl = new Label { Text = label };
+			lbl.CustomMinimumSize = new Vector2(150, 0);
+			lbl.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+			lbl.AddThemeFontSizeOverride("font_size", 18);
+			lbl.ApplyLocaleFontSubstitution(FontType.Regular, "font");
+			row.AddChild(lbl);
+
+			var dropdown = new OptionButton();
+			dropdown.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+			dropdown.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+			foreach (var option in options)
+				dropdown.AddItem(option);
+			row.AddChild(dropdown);
+
+			_vbox.AddChild(row);
+			return dropdown;
+		}
+
 		public void Refresh()
 		{
 			_settings = ModSettings.Load();
@@ -273,6 +308,12 @@ namespace sts2decktracker
 			_draggableTickbox.ButtonPressed = _settings.Draggable;
 			_showCardTooltipTickbox.ButtonPressed = _settings.ShowCardTooltip;
 			_rememberCustomPositionTickbox.ButtonPressed = _settings.RememberCustomPosition;
+			_scrollableTickbox.ButtonPressed = _settings.Scrollable;
+			_scrollableAutoHeightTickbox.ButtonPressed = _settings.ScrollableAutoHeight;
+			_scrollableAutoHeightTickbox.GetParent<Control>().Visible = _settings.Scrollable;
+			_scrollableHeightRow.Setup("Scrollable Height", _settings.ScrollableHeight, 100, 1080);
+			_scrollableHeightRow.Visible = _settings.Scrollable && !_settings.ScrollableAutoHeight;
+			_cardColorModeDropdown.Selected = _settings.CardColorModeInt;
 		}
 
 		private void OnApplyPressed()
