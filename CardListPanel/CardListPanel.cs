@@ -51,6 +51,12 @@ namespace sts2decktracker
             _pileType = pileType;
         }
 
+        public override void _ExitTree()
+        {
+            if (_hasCustomPosition)
+                DeckTrackerInjectionPatch.SaveCustomPosition(_pileType, _customPosition);
+        }
+
         public void SetSettings(ModSettings settings)
         {
             _settings = settings;

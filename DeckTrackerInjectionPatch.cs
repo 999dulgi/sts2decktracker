@@ -95,33 +95,36 @@ namespace sts2decktracker
 			}
 		}
 
+		internal static void SaveCustomPosition(PileType pileType, Vector2 pos)
+		{
+			if (pileType == PileType.Draw)
+				_savedDrawCustomPos = pos;
+			else
+				_savedDiscardCustomPos = pos;
+		}
+
 		internal static void OnReturnToMainMenu()
 		{
 			try
 			{
-				if (IsNodeValid(_drawPilePanel) && _drawPilePanel.GetCustomPosition().HasValue)
-					_savedDrawCustomPos = _drawPilePanel.GetCustomPosition();
-				if (IsNodeValid(_discardPilePanel) && _discardPilePanel.GetCustomPosition().HasValue)
-					_savedDiscardCustomPos = _discardPilePanel.GetCustomPosition();
-
 				var settings = ModSettings.Load();
 				if (settings.RememberCustomPosition)
 				{
-					if (IsNodeValid(_drawPilePanel) && _drawPilePanel.GetCustomPosition().HasValue)
+					if (_savedDrawCustomPos.HasValue)
 					{
-						var contentPos = _drawPilePanel.GetContentPosition();
+						var contentPos = _savedDrawCustomPos.Value;
 						settings.DrawPileX = (int)contentPos.X;
 						settings.DrawPileY = (int)contentPos.Y;
 					}
-					if (IsNodeValid(_discardPilePanel) && _discardPilePanel.GetCustomPosition().HasValue)
+					if (_savedDiscardCustomPos.HasValue)
 					{
-						var contentPos = _discardPilePanel.GetContentPosition();
+						var contentPos = _savedDiscardCustomPos.Value;
 						settings.DiscardPileX = (int)contentPos.X;
 						settings.DiscardPileY = (int)contentPos.Y;
 					}
 					settings.Save();
 				}
-
+				// 메인 메뉴 복귀 시 임시 위치 초기화 (런 종료)
 				_savedDrawCustomPos = null;
 				_savedDiscardCustomPos = null;
 			}
