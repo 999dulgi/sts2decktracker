@@ -25,6 +25,7 @@ namespace sts2decktracker
 		private float _step = 1f;
 		private string _format = "0";
 		private string _tooltip = "";
+		private bool _updatingText = false;
 
 		public float Value
 		{
@@ -64,6 +65,8 @@ namespace sts2decktracker
 			AddChild(_rightArrow);
 
 			_input.TextChanged += OnTextChanged;
+			_input.TextSubmitted += _ => CommitText();
+			_input.FocusExited += OnInputFocusExited;
 			_leftArrow.Released += _ => OnArrowPressed(-_step);
 			_rightArrow.Released += _ => OnArrowPressed(_step);
 		}
@@ -138,19 +141,33 @@ namespace sts2decktracker
 		private void OnArrowPressed(float delta)
 		{
 			Value = RoundToStep(_value + delta);
+			CommitText();
 			ValueChanged?.Invoke(_value);
 		}
 
 		private void OnTextChanged(string text)
 		{
+			if (_updatingText) return;
 			if (float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out float parsed))
 			{
-				float clamped = Math.Clamp(RoundToStep(parsed), _min, _max);
-				string formatted = clamped.ToString(_format, CultureInfo.InvariantCulture);
-				if (_input.Text != formatted)
-					_input.Text = formatted;
-				_value = clamped;
+				_value = Math.Clamp(RoundToStep(parsed), _min, _max);
 				ValueChanged?.Invoke(_value);
+			}
+		}
+
+		private void OnInputFocusExited()
+		{
+			CommitText();
+		}
+
+		private void CommitText()
+		{
+			string formatted = _value.ToString(_format, CultureInfo.InvariantCulture);
+			if (_input.Text != formatted)
+			{
+				_updatingText = true;
+				_input.Text = formatted;
+				_updatingText = false;
 			}
 		}
 
