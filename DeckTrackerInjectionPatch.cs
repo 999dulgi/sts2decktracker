@@ -16,11 +16,13 @@ namespace sts2decktracker
 		private static TopCardPanel _topCardPanel;
 		internal static Vector2? _savedDrawCustomPos;
 		internal static Vector2? _savedDiscardCustomPos;
+		internal static bool _isReturningToMainMenu = false;
 
 		public static void Postfix(NCombatUi __instance)
 		{
 			try
 			{
+				_isReturningToMainMenu = false;
 				var settings = ModSettings.Load();
 
 				var drawPos = new Vector2(settings.DrawPileX, settings.DrawPileY);
@@ -103,24 +105,33 @@ namespace sts2decktracker
 				_savedDiscardCustomPos = pos;
 		}
 
+		internal static void ClearCustomPosition(PileType pileType)
+		{
+			if (pileType == PileType.Draw)
+				_savedDrawCustomPos = null;
+			else
+				_savedDiscardCustomPos = null;
+		}
+
 		internal static void OnReturnToMainMenu()
 		{
 			try
 			{
+				_isReturningToMainMenu = true;
 				var settings = ModSettings.Load();
 				if (settings.RememberCustomPosition)
 				{
-					if (_savedDrawCustomPos.HasValue)
+					var drawPos = _drawPilePanel?.GetCustomPosition();
+					var discardPos = _discardPilePanel?.GetCustomPosition();
+					if (drawPos.HasValue)
 					{
-						var contentPos = _savedDrawCustomPos.Value;
-						settings.DrawPileX = (int)contentPos.X;
-						settings.DrawPileY = (int)contentPos.Y;
+						settings.DrawPileX = (int)drawPos.Value.X;
+						settings.DrawPileY = (int)drawPos.Value.Y;
 					}
-					if (_savedDiscardCustomPos.HasValue)
+					if (discardPos.HasValue)
 					{
-						var contentPos = _savedDiscardCustomPos.Value;
-						settings.DiscardPileX = (int)contentPos.X;
-						settings.DiscardPileY = (int)contentPos.Y;
+						settings.DiscardPileX = (int)discardPos.Value.X;
+						settings.DiscardPileY = (int)discardPos.Value.Y;
 					}
 					settings.Save();
 				}

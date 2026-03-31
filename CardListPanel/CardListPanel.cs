@@ -29,17 +29,13 @@ namespace sts2decktracker
         private MegaCrit.Sts2.Core.Entities.Players.Player _currentPlayer = null;
         private static Font _KreonRegularFont;
         private static Font KreonRegular => _KreonRegularFont ??= ResourceLoader.Load<Font>("res://fonts/kreon_regular.ttf");
-        private Control _dragBar;
-        private Control _dragBarContainer;
         private Control _contentContainer;
+        private Button _resetBtn;
         private bool _isDragging = false;
         private Vector2 _dragOffset;
         private Vector2 _defaultPosition;
         private bool _hasCustomPosition = false;
         private Vector2 _customPosition;
-        private float _dragBarOpacity = 0f;
-        private const float DragBarFadeSpeed = 8f;
-        private const int InnerSeparation = 8;
         private CardModel _hoveredCard = null;
         private Control _hoveredClip = null;
         private readonly System.Collections.Generic.List<(CardModel card, Control clip, System.Collections.Generic.List<IHoverTip> tips)> _cardHoverData = new();
@@ -53,7 +49,7 @@ namespace sts2decktracker
 
         public override void _ExitTree()
         {
-            if (_hasCustomPosition)
+            if (_hasCustomPosition && !DeckTrackerInjectionPatch._isReturningToMainMenu)
                 DeckTrackerInjectionPatch.SaveCustomPosition(_pileType, _customPosition);
         }
 
@@ -63,8 +59,6 @@ namespace sts2decktracker
             _targetOpacity = settings?.IdleOpacity ?? 0.3f;
             _currentOpacity = _targetOpacity;
             _idleDelaySeconds = settings?.IdleDelaySeconds ?? 2.0f;
-            if (_dragBarContainer != null && settings != null)
-                _dragBarContainer.CustomMinimumSize = new Vector2(settings.CardImageWidth, 0);
             if (_contentContainer != null)
                 _contentContainer.Modulate = new Color(1, 1, 1, _currentOpacity);
             ApplyScrollSettings();
@@ -73,18 +67,7 @@ namespace sts2decktracker
 
         public Vector2? GetCustomPosition() => _hasCustomPosition ? _customPosition : null;
 
-        public Vector2 GetContentPosition()
-        {
-            var panelPos = _hasCustomPosition ? _customPosition : GlobalPosition;
-            if ((_settings?.Draggable ?? true) && _dragBarContainer != null)
-            {
-                float barHeight = _dragBarContainer.Size.Y > 0
-                    ? _dragBarContainer.Size.Y
-                    : _dragBarContainer.GetCombinedMinimumSize().Y;
-                return panelPos + new Vector2(0, barHeight + InnerSeparation);
-            }
-            return panelPos;
-        }
+        public Vector2 GetContentPosition() => _hasCustomPosition ? _customPosition : GlobalPosition;
 
         public void SetCustomPosition(Vector2 pos)
         {
@@ -101,21 +84,7 @@ namespace sts2decktracker
 
         private void UpdatePosition()
         {
-            if (_hasCustomPosition)
-            {
-                GlobalPosition = _customPosition;
-                return;
-            }
-            bool draggable = _settings?.Draggable ?? true;
-            if (!draggable || _dragBarContainer == null)
-            {
-                GlobalPosition = _defaultPosition;
-                return;
-            }
-            float barHeight = _dragBarContainer.Size.Y > 0
-                ? _dragBarContainer.Size.Y
-                : _dragBarContainer.GetCombinedMinimumSize().Y;
-            GlobalPosition = _defaultPosition - new Vector2(0, barHeight + InnerSeparation);
+            GlobalPosition = _hasCustomPosition ? _customPosition : _defaultPosition;
         }
 
         private const float ScrollableBottomY = 750f;
@@ -185,34 +154,6 @@ namespace sts2decktracker
             innerContainer.AddThemeConstantOverride("separation", 8);
             marginContainer.AddChild(innerContainer);
 
-            var dragBarRow = new HBoxContainer
-            {
-                SizeFlagsHorizontal = SizeFlags.ShrinkBegin,
-                Modulate = new Color(1, 1, 1, 0f),
-            };
-            dragBarRow.AddThemeConstantOverride("separation", 4);
-            _dragBarContainer = dragBarRow;
-            if (_settings != null)
-                _dragBarContainer.CustomMinimumSize = new Vector2(_settings.CardImageWidth, 0);
-            innerContainer.AddChild(dragBarRow);
-
-            _dragBar = new Control
-            {
-                CustomMinimumSize = new Vector2(0, 18),
-                SizeFlagsHorizontal = SizeFlags.ExpandFill,
-            };
-            var dragBg = new ColorRect
-            {
-                Color = new Color(0f, 0f, 0f, 0.45f),
-                AnchorRight = 1f, AnchorBottom = 1f,
-                MouseFilter = MouseFilterEnum.Ignore
-            };
-            _dragBar.AddChild(dragBg);
-            dragBarRow.AddChild(_dragBar);
-
-            var resetBtn = new Button { Text = "↺", CustomMinimumSize = new Vector2(22, 18), FocusMode = FocusModeEnum.None };
-            resetBtn.Pressed += () => { _hasCustomPosition = false; UpdatePosition(); };
-            dragBarRow.AddChild(resetBtn);
 
             _scrollContainer = new ScrollContainer
             {
@@ -232,30 +173,33 @@ namespace sts2decktracker
             _cardList.AddThemeConstantOverride("separation", 3);
             _scrollContainer.AddChild(_cardList);
 
+            _resetBtn = new Button
+            {
+                Text = "↺",
+                CustomMinimumSize = new Vector2(24, 24),
+                FocusMode = FocusModeEnum.None,
+                Visible = false,
+                AnchorLeft = 1f, AnchorRight = 1f,
+                AnchorTop = 0f, AnchorBottom = 0f,
+                OffsetLeft = -8f, OffsetRight = 16f,
+                OffsetTop = 4f, OffsetBottom = 28f,
+                ZIndex = 10,
+            };
+            _resetBtn.Pressed += () =>
+            {
+                _hasCustomPosition = false;
+                DeckTrackerInjectionPatch.ClearCustomPosition(_pileType);
+                UpdatePosition();
+            };
+            AddChild(_resetBtn);
+
             _contentContainer = mainContainer;
 
             SetMouseIgnoreRecursive(this);
 
-            _dragBar.MouseFilter = MouseFilterEnum.Stop;
-            resetBtn.MouseFilter = MouseFilterEnum.Stop;
             _scrollContainer.MouseFilter = MouseFilterEnum.Ignore;
-            _dragBar.GuiInput += (InputEvent e) =>
-            {
-                if (e is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left)
-                {
-                    if (mb.Pressed)
-                    {
-                        _isDragging = true;
-                        _dragOffset = GetGlobalMousePosition() - GlobalPosition;
-                    }
-                    else
-                    {
-                        _isDragging = false;
-                        _hasCustomPosition = true;
-                        _customPosition = GlobalPosition;
-                    }
-                }
-            };
+            _resetBtn.MouseFilter = MouseFilterEnum.Stop;
+            Callable.From(() => _scrollContainer.GetVScrollBar().Modulate = Colors.Transparent).CallDeferred();
 
             ApplyScrollSettings();
             GD.Print($"[CardListPanel:{_pileType}] _Ready complete. Panel size={Size}, Visible={Visible}");
@@ -266,6 +210,26 @@ namespace sts2decktracker
             }).CallDeferred();
         }
 
+
+        public override void _Input(InputEvent @event)
+        {
+            if (!(_settings?.Draggable ?? false)) return;
+            if (@event is not InputEventMouseButton mb || mb.ButtonIndex != MouseButton.Left) return;
+            if (mb.Pressed)
+            {
+                if (new Rect2(GlobalPosition, Size).HasPoint(mb.GlobalPosition))
+                {
+                    _isDragging = true;
+                    _dragOffset = mb.GlobalPosition - GlobalPosition;
+                }
+            }
+            else if (_isDragging)
+            {
+                _isDragging = false;
+                _hasCustomPosition = true;
+                _customPosition = GlobalPosition;
+            }
+        }
 
         public override void _UnhandledInput(InputEvent @event)
         {
@@ -284,23 +248,14 @@ namespace sts2decktracker
             if (_isDragging && (_settings?.Draggable ?? true))
                 GlobalPosition = GetGlobalMousePosition() - _dragOffset;
 
+            if (_resetBtn != null)
+            {
+                bool mouseOver = new Rect2(GlobalPosition, Size).HasPoint(GetGlobalMousePosition());
+                _resetBtn.Visible = (_settings?.Draggable ?? false) && _hasCustomPosition && mouseOver;
+            }
+
             if (_settings?.Scrollable ?? false)
                 UpdateScrollHeight();
-
-            // Drag bar opacity: fade in on hover, fade out otherwise
-            if (_dragBarContainer != null)
-            {
-                bool draggable = _settings?.Draggable ?? true;
-                _dragBarContainer.Visible = draggable;
-                if (draggable)
-                {
-                    bool isHovered = new Rect2(Vector2.Zero, _dragBarContainer.Size).HasPoint(
-                        _dragBarContainer.GetLocalMousePosition());
-                    float targetDragBarOpacity = isHovered ? 1f : 0f;
-                    _dragBarOpacity = Mathf.Lerp(_dragBarOpacity, targetDragBarOpacity, DragBarFadeSpeed * (float)delta);
-                    _dragBarContainer.Modulate = new Color(1, 1, 1, _dragBarOpacity);
-                }
-            }
 
             // Card hover tooltip detection
             if (!(_settings?.ShowCardTooltip ?? true) && _hoveredCard != null)
