@@ -232,7 +232,7 @@ namespace sts2decktracker
 
             _dragBar.MouseFilter = MouseFilterEnum.Stop;
             resetBtn.MouseFilter = MouseFilterEnum.Stop;
-            _scrollContainer.MouseFilter = MouseFilterEnum.Pass;
+            _scrollContainer.MouseFilter = MouseFilterEnum.Ignore;
             _dragBar.GuiInput += (InputEvent e) =>
             {
                 if (e is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left)
@@ -260,6 +260,18 @@ namespace sts2decktracker
             }).CallDeferred();
         }
 
+
+        public override void _UnhandledInput(InputEvent @event)
+        {
+            if (_scrollContainer == null || !(_settings?.Scrollable ?? false)) return;
+            if (@event is not InputEventMouseButton mb) return;
+            if (mb.ButtonIndex != MouseButton.WheelUp && mb.ButtonIndex != MouseButton.WheelDown) return;
+            var rect = new Rect2(_scrollContainer.GlobalPosition, _scrollContainer.Size);
+            if (!rect.HasPoint(GetGlobalMousePosition())) return;
+            int scrollStep = _settings?.CardHeight ?? 32;
+            _scrollContainer.ScrollVertical += mb.ButtonIndex == MouseButton.WheelDown ? scrollStep : -scrollStep;
+            GetViewport().SetInputAsHandled();
+        }
 
         public override void _Process(double delta)
         {
