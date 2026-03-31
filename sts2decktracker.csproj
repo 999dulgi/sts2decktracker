@@ -16,7 +16,7 @@
 
   <Target Name="CopyToModsFolder" AfterTargets="Build">
     <PropertyGroup>
-      <ModsFolder>C:\Program Files (x86)\Steam\steamapps\common\Slay the Spire 2\mods</ModsFolder>
+      <ModsFolder>C:\Program Files (x86)\Steam\steamapps\common\Slay the Spire 2\mods\SlayTheSpire2DeckTracker</ModsFolder>
       <SourceDll>$(OutputPath)sts2decktracker.dll</SourceDll>
     </PropertyGroup>
     <Message Text="Copying DLL to STS2 mods folder..." Importance="high" />
