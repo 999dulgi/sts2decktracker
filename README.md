@@ -1,8 +1,8 @@
 # Slay the Spire 2 Deck Tracker
 
-A mod that displays decktracker your draw pile and discard pile during combat.
+A mod that displays your draw pile and discard pile during combat.
 
-## ScreenShot
+## Screenshot
 
 ![Deck Tracker in Action](deck_tracker_example.webp)
 
@@ -10,9 +10,9 @@ A mod that displays decktracker your draw pile and discard pile during combat.
 
 1. Download the latest release from the [releases page](https://github.com/999dulgi/sts2decktracker/releases)
 2. Extract the zip file
-3. Copy the `sts2decktracker.dll`and `sts2decktracker.pck` file to your STS2 mods folder (usually `C:\Program Files (x86)\Steam\steamapps\common\Slay the Spire 2\mods\`) if the mods folder doesn't exist, create mods folder
+3. Copy the `sts2decktracker.dll` and `sts2decktracker.pck` file to your STS2 mods folder (usually `C:\Program Files (x86)\Steam\steamapps\common\Slay the Spire 2\mods\`). If the mods folder doesn't exist, create it.
 4. Launch Slay the Spire 2
-5. When you first install the mod and enter the game, a mod activation message will appear; if you activate it, the mod will be enabled
+5. When you first install the mod and enter the game, a mod activation message will appear. Activate it to enable the mod.
 
 ## Configuration
 
@@ -28,28 +28,36 @@ The config file will be created automatically on first run with default values.
 {
   "drawPileX": 0,
   "drawPileY": 140,
-  "discardPileX": 1660,
+  "discardPileX": 1670,
   "discardPileY": 140,
-  "cardSize": 28,
+  "cardSize": 24,
   "idleOpacity": 0.3,
   "activeOpacity": 1.0,
   "idleDelaySeconds": 1.0,
   "draggable": false,
   "showCardTooltip": false,
-  "rememberCustomPosition": false
+  "rememberCustomPosition": false,
+  "cardColorMode": 2,
+  "scrollable": false,
+  "scrollableAutoHeight": true,
+  "scrollableHeight": 400
 }
 ```
 
 ### Settings Explanation
 
-- **drawPileX/drawPileY**: Position of the draw pile panel (X=0 is left edge, Y=140 is below top)
-- **discardPileX/discardPileY**: Position of the discard pile panel (negative X positions from right edge, position is based on basic card size)
-- **cardSize**: Size of each card in the deck tracker panels and all text sizes
-- **idleOpacity/activeOpacity**: Opacity of cards when they haven't changed and when they have changed (0.0 = fully transparent, 1.0 = fully opaque)
-- **idleDelaySeconds**: Delay in seconds before opacity changes after a card has been modified
-- **draggable**: Set card list draggable
-- **showCardTooltip**: Show card info when you hover card image
-- **rememberCustomPosition**: Remember the position after exit the game when you enable draggable
+- **drawPileX/drawPileY**: Position of the draw pile panel (X=0 is left edge, Y=0 is top)
+- **discardPileX/discardPileY**: Position of the discard pile panel
+- **cardSize**: Base size for cards and all text in the tracker panels
+- **idleOpacity/activeOpacity**: Opacity when cards haven't changed / when they just changed (0.0 = fully transparent, 1.0 = fully opaque)
+- **idleDelaySeconds**: Seconds before the panel fades back to idle opacity after a card change
+- **draggable**: Allow dragging the panel to reposition it. A small ↺ reset button appears on hover to return it to the default position.
+- **showCardTooltip**: Show card info when hovering over a card image
+- **rememberCustomPosition**: Save the dragged position when exiting the game (requires `draggable: true`)
+- **cardColorMode**: Card name color scheme — `0` = no color (all plain), `1` = upgraded/enchanted only, `2` = full rarity colors
+- **scrollable**: Enable scrolling when the card list exceeds the panel height
+- **scrollableAutoHeight**: Automatically set scroll height based on panel Y position (`height = 750 - Y`). When `false`, uses `scrollableHeight`.
+- **scrollableHeight**: Fixed scroll height in pixels (used when `scrollableAutoHeight` is `false`)
 
 ### Cautions
 
@@ -82,7 +90,7 @@ Slay the Spire 2 덱 트레커 모드입니다.
 
 **위치:** `%APPDATA%\SlaytheSpire2\DeckTracker.config.json`
 
-설정 파일은 첫 실행 시 자동으로 생성되며 기본값으로 생성됩니다.
+설정 파일은 첫 실행 시 기본값으로 자동 생성됩니다.
 
 ### 사용 가능한 설정
 
@@ -90,29 +98,36 @@ Slay the Spire 2 덱 트레커 모드입니다.
 {
   "drawPileX": 0,
   "drawPileY": 140,
-  "discardPileX": 1660,
+  "discardPileX": 1670,
   "discardPileY": 140,
-  "cardSize": 28,
+  "cardSize": 24,
   "idleOpacity": 0.3,
   "activeOpacity": 1.0,
-  "idleDelaySeconds": 1.0
+  "idleDelaySeconds": 1.0,
   "draggable": false,
   "showCardTooltip": false,
-  "rememberCustomPosition": false
+  "rememberCustomPosition": false,
+  "cardColorMode": 2,
+  "scrollable": false,
+  "scrollableAutoHeight": true,
+  "scrollableHeight": 400
 }
 ```
 
 ### 설정 설명
 
-- **drawPileX/drawPileY**: 드로우 피일 패널의 위치 (X=0은 왼쪽 가장자리, Y=140은 상단 아래)
-- **discardPileX/discardPileY**: 디스카드 피일 패널의 위치 (음수 X 위치는 오른쪽 가장자리에서부터, 위치는 기본 카드 크기를 기준으로 합니다)
-- **cardSize**: 덱 트래커 패널의 각 카드 크기와 모든 텍스트 크기
-- **idleOpacity/activeOpacity**: 카드가 변경되지 않았을 때와 변경되었을 때의 투명도 (0.0 = 완전 투명, 1.0 = 완전 불투명)
-- **idleDelaySeconds**: 카드가 변경된 후 투명도가 변경되기까지의 대기 시간 (초)
-- **draggable**: 카드 리스트의 드래그 가능 여부
-- **showCardTooltip**: 카드 이미지에 마우스 커서를 올리면 카드 정보를 보여줄지 여부
-- **rememberCustomPosition**: draggable을 활성화 했을때 게임을 종료했을 때 카드 리스트의 위치를 저장할지 여부
-
+- **drawPileX/drawPileY**: 드로우 파일 패널의 위치 (X=0은 왼쪽 끝, Y=0은 상단)
+- **discardPileX/discardPileY**: 디스카드 파일 패널의 위치
+- **cardSize**: 덱 트래커 패널의 카드 및 텍스트 기본 크기
+- **idleOpacity/activeOpacity**: 카드가 변경되지 않았을 때 / 변경되었을 때의 투명도 (0.0 = 완전 투명, 1.0 = 완전 불투명)
+- **idleDelaySeconds**: 카드 변경 후 idle 투명도로 돌아오기까지의 대기 시간 (초)
+- **draggable**: 패널을 드래그해서 위치를 변경할 수 있게 합니다. 패널에 마우스를 올리면 ↺ 버튼이 표시되어 기본 위치로 초기화할 수 있습니다.
+- **showCardTooltip**: 카드 이미지에 마우스를 올리면 카드 정보를 표시합니다.
+- **rememberCustomPosition**: 게임 종료 시 드래그한 위치를 저장합니다. (`draggable: true` 필요)
+- **cardColorMode**: 카드 이름 색상 모드 — `0` = 색상 없음 (모두 기본색), `1` = 강화/인챈트만 색상 표시, `2` = 희귀도 포함 전체 색상
+- **scrollable**: 카드 목록이 패널 높이를 초과할 때 스크롤 가능하게 합니다.
+- **scrollableAutoHeight**: 패널 Y 위치에 따라 스크롤 높이를 자동으로 설정합니다 (`height = 750 - Y`). `false`이면 `scrollableHeight`를 사용합니다.
+- **scrollableHeight**: 고정 스크롤 높이 (픽셀 단위, `scrollableAutoHeight`가 `false`일 때 사용)
 
 ### 주의사항
 
@@ -131,5 +146,5 @@ You can build this mod on dotnet or Godot 4.5.1
 ### Make DLL
 
 1. Open the terminal and goto project directory
-2. Enter `donet build`
-4. DLL file will be in sts2 mod folder. Or copy the generated DLL in the .godot/mono/temp/bin/Debug/sts2decktracker.dll
+2. Enter `dotnet build`
+3. DLL file will be in sts2 mod folder. Or copy the generated DLL in the `.godot/mono/temp/bin/Debug/sts2decktracker.dll`
