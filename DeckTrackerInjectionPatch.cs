@@ -70,18 +70,20 @@ namespace sts2decktracker
 			{
 				if (_drawPilePanel != null && IsNodeValid(_drawPilePanel))
 				{
-					_drawPilePanel.SetSettings(settings);
-					_drawPilePanel.SetDefaultPosition(new Vector2(settings.DrawPileX, settings.DrawPileY));
 					_drawPilePanel.CustomMinimumSize = new Vector2(settings.PanelWidth, settings.PanelHeight);
 					_drawPilePanel.Size = new Vector2(settings.PanelWidth, settings.PanelHeight);
+					_drawPilePanel.SetSettings(settings);
+					_drawPilePanel.SetDefaultPosition(new Vector2(settings.DrawPileX, settings.DrawPileY));
+					Godot.Callable.From(_drawPilePanel.UpdatePositionPublic).CallDeferred();
 				}
 
 				if (_discardPilePanel != null && IsNodeValid(_discardPilePanel))
 				{
-					_discardPilePanel.SetSettings(settings);
-					_discardPilePanel.SetDefaultPosition(new Vector2(settings.DiscardPileX, settings.DiscardPileY));
 					_discardPilePanel.CustomMinimumSize = new Vector2(settings.PanelWidth, settings.PanelHeight);
 					_discardPilePanel.Size = new Vector2(settings.PanelWidth, settings.PanelHeight);
+					_discardPilePanel.SetSettings(settings);
+					_discardPilePanel.SetDefaultPosition(new Vector2(settings.DiscardPileX, settings.DiscardPileY));
+					Godot.Callable.From(_discardPilePanel.UpdatePositionPublic).CallDeferred();
 				}
 
 				if (_topCardPanel != null && GodotObject.IsInstanceValid(_topCardPanel))
@@ -118,6 +120,8 @@ namespace sts2decktracker
 			try
 			{
 				_isReturningToMainMenu = true;
+				_drawPilePanel?.ResetTemporaryState();
+				_discardPilePanel?.ResetTemporaryState();
 				var settings = ModSettings.Load();
 				if (settings.RememberCustomPosition)
 				{

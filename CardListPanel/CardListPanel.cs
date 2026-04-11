@@ -41,6 +41,14 @@ namespace sts2decktracker
         private readonly System.Collections.Generic.List<(CardModel card, Control clip, System.Collections.Generic.List<IHoverTip> tips)> _cardHoverData = new();
         private readonly System.Collections.Generic.Dictionary<CardModel, int> _cardSnapshot = new();
         private ScrollContainer _scrollContainer;
+        private Button _lockBtn;
+        private Button _settingsBtn;
+        private Control _miniSettingsPanel;
+        private VBoxContainer _buttonStrip;
+        private bool _isDraggableLocked = false;
+        private Label _miniCardSizeLabel;
+        private Label _miniIdleLabel;
+        private Label _miniActiveLabel;
 
         public void SetPileType(PileType pileType)
         {
@@ -62,7 +70,9 @@ namespace sts2decktracker
             if (_contentContainer != null)
                 _contentContainer.Modulate = new Color(1, 1, 1, _currentOpacity);
             ApplyScrollSettings();
-            if (IsInsideTree()) UpdatePosition();
+            RefreshMiniPanel();
+            if (_currentPile != null && _cardList != null)
+                UpdateCardList(_cardList, _currentPile);
         }
 
         public Vector2? GetCustomPosition() => _hasCustomPosition ? _customPosition : null;
@@ -87,7 +97,9 @@ namespace sts2decktracker
             GlobalPosition = _hasCustomPosition ? _customPosition : _defaultPosition;
         }
 
-        private const float ScrollableBottomY = 750f;
+        public void UpdatePositionPublic() => UpdatePosition();
+
+        private const float ScrollableBottomY = 800f;
 
         private void ApplyScrollSettings()
         {
@@ -128,13 +140,15 @@ namespace sts2decktracker
 
         public override void _Ready()
         {
-            CustomMinimumSize = new Vector2(250, 400);
-            Size = new Vector2(250, 400);
+            var pw = _settings?.PanelWidth ?? 312;
+            var ph = _settings?.PanelHeight ?? 480;
+            CustomMinimumSize = new Vector2(pw, ph);
+            Size = new Vector2(pw, ph);
+            SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
+            SizeFlagsVertical = SizeFlags.ShrinkBegin;
             MouseFilter = MouseFilterEnum.Ignore;
             SetAnchorsPreset(LayoutPreset.TopLeft);
-
-            var emptyStyle = new StyleBoxEmpty();
-            AddThemeStyleboxOverride("panel", emptyStyle);
+            AddThemeStyleboxOverride("panel", new StyleBoxEmpty());
 
             var mainContainer = new VBoxContainer();
             mainContainer.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
@@ -173,47 +187,74 @@ namespace sts2decktracker
             _cardList.AddThemeConstantOverride("separation", 3);
             _scrollContainer.AddChild(_cardList);
 
-            _resetBtn = new Button
+            _contentContainer = mainContainer;
+
+            SetMouseIgnoreRecursive(this);
+
+            _scrollContainer.MouseFilter = MouseFilterEnum.Ignore;
+            Callable.From(() => _scrollContainer.GetVScrollBar().Modulate = Colors.Transparent).CallDeferred();
+
+            // 버튼 스트립 - SetMouseIgnoreRecursive 이후 추가하므로 MouseFilter 기본값(Stop) 유지
+            bool isDiscard = _pileType == PileType.Discard;
+            _buttonStrip = new VBoxContainer();
+            var buttonStrip = _buttonStrip;
+            buttonStrip.AnchorTop = 0f; buttonStrip.AnchorBottom = 0f;
+            buttonStrip.OffsetTop = 4f; buttonStrip.OffsetBottom = 86f;
+            buttonStrip.ZIndex = 1000;
+            buttonStrip.MouseFilter = MouseFilterEnum.Pass;
+            if (isDiscard)
             {
-                Text = "↺",
-                CustomMinimumSize = new Vector2(24, 24),
-                FocusMode = FocusModeEnum.None,
-                Visible = false,
-                AnchorLeft = 1f, AnchorRight = 1f,
-                AnchorTop = 0f, AnchorBottom = 0f,
-                OffsetLeft = -8f, OffsetRight = 16f,
-                OffsetTop = 4f, OffsetBottom = 28f,
-                ZIndex = 10,
-            };
+                buttonStrip.AnchorLeft = 0f; buttonStrip.AnchorRight = 0f;
+                buttonStrip.OffsetLeft = 0f; buttonStrip.OffsetRight = 28f;
+            }
+            else
+            {
+                buttonStrip.AnchorLeft = 1f; buttonStrip.AnchorRight = 1f;
+                buttonStrip.OffsetLeft = -28f; buttonStrip.OffsetRight = 0f;
+            }
+
+            if (!isDiscard)
+            {
+                _settingsBtn = new Button { Text = "⚙", CustomMinimumSize = new Vector2(24, 24), FocusMode = FocusModeEnum.None, Visible = false };
+                _settingsBtn.Pressed += () =>
+                {
+                    if (_miniSettingsPanel != null)
+                    {
+                        _miniSettingsPanel.Visible = !_miniSettingsPanel.Visible;
+                        RefreshMiniPanel();
+                    }
+                };
+                buttonStrip.AddChild(_settingsBtn);
+            }
+
+            _lockBtn = new Button { CustomMinimumSize = new Vector2(24, 24), FocusMode = FocusModeEnum.None, Visible = false };
+            _lockBtn.Pressed += () => _isDraggableLocked = !_isDraggableLocked;
+            buttonStrip.AddChild(_lockBtn);
+            _resetBtn = new Button { Text = "↺", CustomMinimumSize = new Vector2(24, 24), FocusMode = FocusModeEnum.None, Visible = false };
             _resetBtn.Pressed += () =>
             {
                 _hasCustomPosition = false;
                 DeckTrackerInjectionPatch.ClearCustomPosition(_pileType);
                 UpdatePosition();
             };
-            AddChild(_resetBtn);
+            buttonStrip.AddChild(_resetBtn);
+            AddChild(buttonStrip);
 
-            _contentContainer = mainContainer;
-
-            SetMouseIgnoreRecursive(this);
-
-            _scrollContainer.MouseFilter = MouseFilterEnum.Ignore;
-            _resetBtn.MouseFilter = MouseFilterEnum.Stop;
-            Callable.From(() => _scrollContainer.GetVScrollBar().Modulate = Colors.Transparent).CallDeferred();
+            if (!isDiscard)
+            {
+                _miniSettingsPanel = CreateMiniSettingsPanel();
+                AddChild(_miniSettingsPanel);
+                RefreshMiniPanel();
+            }
 
             ApplyScrollSettings();
-            GD.Print($"[CardListPanel:{_pileType}] _Ready complete. Panel size={Size}, Visible={Visible}");
-            Callable.From(() =>
-            {
-                GD.Print($"[CardListPanel:{_pileType}] Deferred layout check: Panel={Size}, scrollContainer={_scrollContainer?.Size}, cardList={_cardList?.Size}");
-                UpdatePosition();
-            }).CallDeferred();
+            Callable.From(UpdatePosition).CallDeferred();
         }
 
 
         public override void _Input(InputEvent @event)
         {
-            if (!(_settings?.Draggable ?? false)) return;
+            if (!(_settings?.Draggable ?? false) || _isDraggableLocked) return;
             if (@event is not InputEventMouseButton mb || mb.ButtonIndex != MouseButton.Left) return;
             if (mb.Pressed)
             {
@@ -248,11 +289,20 @@ namespace sts2decktracker
             if (_isDragging && (_settings?.Draggable ?? true))
                 GlobalPosition = GetGlobalMousePosition() - _dragOffset;
 
+            var mousePos = GetGlobalMousePosition();
+            bool mouseOver = (_buttonStrip != null && _buttonStrip.GetGlobalRect().HasPoint(mousePos))
+                || (GodotObject.IsInstanceValid(_miniSettingsPanel) && (_miniSettingsPanel?.Visible ?? false)
+                    && _miniSettingsPanel.GetGlobalRect().HasPoint(mousePos));
+            bool draggable = _settings?.Draggable ?? false;
             if (_resetBtn != null)
+                _resetBtn.Visible = draggable && _hasCustomPosition && mouseOver;
+            if (_lockBtn != null)
             {
-                bool mouseOver = new Rect2(GlobalPosition, Size).HasPoint(GetGlobalMousePosition());
-                _resetBtn.Visible = (_settings?.Draggable ?? false) && _hasCustomPosition && mouseOver;
+                _lockBtn.Visible = draggable && mouseOver;
+                _lockBtn.Text = _isDraggableLocked ? "🔒" : "🔓";
             }
+            if (_settingsBtn != null)
+                _settingsBtn.Visible = mouseOver;
 
             if (_settings?.Scrollable ?? false)
                 UpdateScrollHeight();
@@ -270,7 +320,6 @@ namespace sts2decktracker
                 CardModel newHovered = null;
                 Control newHoveredClip = null;
                 System.Collections.Generic.List<IHoverTip> newHoveredTips = null;
-                var mousePos = GetGlobalMousePosition();
                 var scrollClip = _scrollContainer != null
                     ? new Rect2(_scrollContainer.GlobalPosition, _scrollContainer.Size)
                     : (Rect2?)null;
@@ -345,7 +394,6 @@ namespace sts2decktracker
 
             if (_currentPile != pile)
             {
-                GD.Print($"[CardListPanel:{_pileType}] Pile changed, calling UpdateCardList");
                 _currentPile = pile;
                 UpdateCardList(_cardList, _currentPile);
                 _targetOpacity = _settings?.ActiveOpacity ?? 1.0f;
@@ -384,8 +432,6 @@ namespace sts2decktracker
         {
             if (container == null || pile == null)
                 return;
-
-            GD.Print($"[CardListPanel:{_pileType}] UpdateCardList: pile.Cards.Count={pile.Cards.Count}, panel Visible={Visible}, size={Size}");
 
             _cardHoverData.Clear();
             if (_hoveredCard != null && _hoveredClip != null && GodotObject.IsInstanceValid(_hoveredClip))
@@ -782,7 +828,6 @@ namespace sts2decktracker
             }
 
             SetMouseIgnoreRecursiveExceptHover(container);
-            GD.Print($"[CardListPanel:{_pileType}] UpdateCardList done: container children={container.GetChildCount()}, cardList size={_cardList?.Size}, scrollContainer size={_scrollContainer?.Size}");
         }
 
         private static void SetMouseIgnoreRecursiveExceptHover(Node node)
@@ -808,6 +853,114 @@ namespace sts2decktracker
                 starCost,
                 c.Enchantment?.GetType().GetHashCode() ?? 0
             );
+        }
+
+        public void ResetTemporaryState()
+        {
+            _isDraggableLocked = false;
+            if (_miniSettingsPanel != null) _miniSettingsPanel.Visible = false;
+        }
+
+        private void RefreshMiniPanel()
+        {
+            if (_settings == null) return;
+            if (_miniCardSizeLabel != null)
+                _miniCardSizeLabel.Text = _settings.CardSize.ToString();
+            if (_miniIdleLabel != null)
+                _miniIdleLabel.Text = $"{(int)Math.Round(_settings.IdleOpacity * 100)}%";
+            if (_miniActiveLabel != null)
+                _miniActiveLabel.Text = $"{(int)Math.Round(_settings.ActiveOpacity * 100)}%";
+        }
+
+        private void ChangeSetting(System.Action mutate)
+        {
+            if (_settings == null) return;
+            mutate();
+            _settings.Save();
+            DeckTrackerInjectionPatch.ApplySettings(_settings);
+        }
+
+        private Control CreateMiniSettingsPanel()
+        {
+            var bg = new Panel();
+            bg.AnchorLeft = 1f; bg.AnchorRight = 1f;
+            bg.AnchorTop = 0f; bg.AnchorBottom = 0f;
+            bg.OffsetLeft = 4f; bg.OffsetRight = 204f;
+            bg.OffsetTop = 0f; bg.OffsetBottom = 110f;
+            bg.ZIndex = 20;
+            bg.Visible = false;
+            bg.MouseFilter = MouseFilterEnum.Stop;
+            var style = new StyleBoxFlat { BgColor = new Color(0.08f, 0.08f, 0.08f, 0.92f) };
+            style.SetCornerRadiusAll(4);
+            bg.AddThemeStyleboxOverride("panel", style);
+
+            var margin = new MarginContainer();
+            margin.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+            margin.AddThemeConstantOverride("margin_left", 8);
+            margin.AddThemeConstantOverride("margin_right", 8);
+            margin.AddThemeConstantOverride("margin_top", 6);
+            margin.AddThemeConstantOverride("margin_bottom", 6);
+            margin.MouseFilter = MouseFilterEnum.Pass;
+            bg.AddChild(margin);
+
+            var vbox = new VBoxContainer();
+            vbox.AddThemeConstantOverride("separation", 4);
+            vbox.MouseFilter = MouseFilterEnum.Pass;
+            margin.AddChild(vbox);
+
+            var (sizeLabel, sizeRow) = MakeMiniRow("Card Size",
+                () => ChangeSetting(() => _settings.CardSize = Math.Max(12, _settings.CardSize - 1)),
+                () => ChangeSetting(() => _settings.CardSize = Math.Min(48, _settings.CardSize + 1)));
+            _miniCardSizeLabel = sizeLabel;
+            vbox.AddChild(sizeRow);
+
+            var (idleLabel, idleRow) = MakeMiniRow("Idle %",
+                () => ChangeSetting(() => _settings.IdleOpacity = (float)Math.Round(Math.Max(0.0, _settings.IdleOpacity - 0.05), 2)),
+                () => ChangeSetting(() => _settings.IdleOpacity = (float)Math.Round(Math.Min(1.0, _settings.IdleOpacity + 0.05), 2)));
+            _miniIdleLabel = idleLabel;
+            vbox.AddChild(idleRow);
+
+            var (activeLabel, activeRow) = MakeMiniRow("Active %",
+                () => ChangeSetting(() => _settings.ActiveOpacity = (float)Math.Round(Math.Max(0.0, _settings.ActiveOpacity - 0.05), 2)),
+                () => ChangeSetting(() => _settings.ActiveOpacity = (float)Math.Round(Math.Min(1.0, _settings.ActiveOpacity + 0.05), 2)));
+            _miniActiveLabel = activeLabel;
+            vbox.AddChild(activeRow);
+
+            return bg;
+        }
+
+        private static (Label, HBoxContainer) MakeMiniRow(string labelText, System.Action onMinus, System.Action onPlus)
+        {
+            var row = new HBoxContainer();
+            row.AddThemeConstantOverride("separation", 4);
+            row.MouseFilter = MouseFilterEnum.Pass;
+
+            var lbl = new Label { Text = labelText, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            lbl.AddThemeFontSizeOverride("font_size", 14);
+            lbl.MouseFilter = MouseFilterEnum.Ignore;
+            row.AddChild(lbl);
+
+            var minusBtn = new Button { Text = "−", CustomMinimumSize = new Vector2(24, 22), FocusMode = FocusModeEnum.None };
+            minusBtn.AddThemeFontSizeOverride("font_size", 14);
+            minusBtn.Pressed += onMinus;
+            row.AddChild(minusBtn);
+
+            var valueLabel = new Label
+            {
+                CustomMinimumSize = new Vector2(44, 0),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            valueLabel.AddThemeFontSizeOverride("font_size", 14);
+            valueLabel.MouseFilter = MouseFilterEnum.Ignore;
+            row.AddChild(valueLabel);
+
+            var plusBtn = new Button { Text = "+", CustomMinimumSize = new Vector2(24, 22), FocusMode = FocusModeEnum.None };
+            plusBtn.AddThemeFontSizeOverride("font_size", 14);
+            plusBtn.Pressed += onPlus;
+            row.AddChild(plusBtn);
+
+            return (valueLabel, row);
         }
 
         private static Color GetTitleOutlineColorByRarity(CardRarity rarity)

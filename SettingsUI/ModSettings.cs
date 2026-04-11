@@ -23,7 +23,7 @@ namespace sts2decktracker
 		public int DrawPileY { get; set; } = 140;
 
 		[JsonPropertyName("discardPileX")]
-		public int DiscardPileX { get; set; } = 1670;
+		public int DiscardPileX { get; set; } = 1660;
 
 		[JsonPropertyName("discardPileY")]
 		public int DiscardPileY { get; set; } = 140;
@@ -38,7 +38,7 @@ namespace sts2decktracker
 		public bool Draggable { get; set; } = false;
 
 		[JsonPropertyName("cardSize")]
-		public int CardSize { get; set; } = 24;
+		public int CardSize { get; set; } = 28;
 
 		[JsonPropertyName("idleOpacity")]
 		public float IdleOpacity { get; set; } = 0.3f;
@@ -74,10 +74,10 @@ namespace sts2decktracker
 		[JsonPropertyName("scrollableHeight")]
 		public int ScrollableHeight { get; set; } = 400;
 
-		public int PanelWidth => CardSize * 11 + 8;
-		public int PanelHeight => CardSize * 20;
 		public int CardHeight => CardSize + 8;
 		public int CardWidth => CardSize * 10;
+		public int PanelWidth => CardWidth + 20;
+		public int PanelHeight => (CardHeight + 3) * 14 + 17;
 		public int CardImageWidth => CardWidth - CostIconSize * 2;
 		public int CardCountFontSize => CardSize + 4;
 		public int CardNameFontSize => CardSize;
