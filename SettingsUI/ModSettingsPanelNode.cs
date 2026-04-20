@@ -297,10 +297,13 @@ namespace sts2decktracker
 
 		private void RefreshValues()
 		{
-			_drawPileX.Setup("Draw Pile X", _settings.DrawPileX, 0, 1920);
-			_drawPileY.Setup("Draw Pile Y", _settings.DrawPileY, 0, 1080);
-			_discardPileX.Setup("Discard Pile X", _settings.DiscardPileX, 0, 1920);
-			_discardPileY.Setup("Discard Pile Y", _settings.DiscardPileY, 0, 1080);
+			var viewSize = GetViewport().GetVisibleRect().Size;
+			int maxX = (int)viewSize.X;
+			int maxY = (int)viewSize.Y;
+			_drawPileX.Setup("Draw Pile X", _settings.DrawPileX, 0, maxX);
+			_drawPileY.Setup("Draw Pile Y", _settings.DrawPileY, 0, maxY);
+			_discardPileX.Setup("Discard Pile X", _settings.DiscardPileX, 0, maxX);
+			_discardPileY.Setup("Discard Pile Y", _settings.DiscardPileY, 0, maxY);
 			_cardSize.Setup("Card Size", _settings.CardSize, 12, 48);
 			_fadeDelay.Setup("Fade Time (s)", _settings.IdleDelaySeconds, 0f, 10f, step: 0.1f);
 			_idleOpacitySlider.Value = _settings.IdleOpacity * 100;
