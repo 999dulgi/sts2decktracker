@@ -40,6 +40,21 @@ namespace sts2decktracker
         private Control _hoveredClip = null;
         private readonly System.Collections.Generic.List<(CardModel card, Control clip, System.Collections.Generic.List<IHoverTip> tips)> _cardHoverData = new();
         private readonly System.Collections.Generic.Dictionary<CardModel, int> _cardSnapshot = new();
+        private readonly System.Collections.Generic.Dictionary<string, RowView> _rowsByKey = new();
+        private static Texture2D _starIconCached;
+        private static Texture2D StarIconCached => _starIconCached ??= ResourceLoader.Load<Texture2D>("res://images/packed/sprite_fonts/star_icon.png");
+        private static readonly System.Collections.Generic.Dictionary<string, Texture2D> _enchantIconCache = new();
+        private static readonly System.Collections.Generic.Dictionary<string, Texture2D> _energyIconCache = new();
+
+        private sealed class RowView
+        {
+            public HBoxContainer Root;
+            public Control ClipContainer;
+            public Label CountLabel;
+            public Control EnergyCostContainer;
+            public Control StarCostContainer;
+            public int CostHash;
+        }
         private ScrollContainer _scrollContainer;
         private Button _lockBtn;
         private Button _settingsBtn;
@@ -72,7 +87,10 @@ namespace sts2decktracker
             ApplyScrollSettings();
             RefreshMiniPanel();
             if (_currentPile != null && _cardList != null)
+            {
+                ClearAllRows();
                 UpdateCardList(_cardList, _currentPile);
+            }
         }
 
         public Vector2? GetCustomPosition() => _hasCustomPosition ? _customPosition : null;
@@ -433,7 +451,6 @@ namespace sts2decktracker
             if (container == null || pile == null)
                 return;
 
-            _cardHoverData.Clear();
             if (_hoveredCard != null && _hoveredClip != null && GodotObject.IsInstanceValid(_hoveredClip))
                 NHoverTipSet.Remove(_hoveredClip);
             _hoveredCard = null;
@@ -443,24 +460,10 @@ namespace sts2decktracker
             foreach (var c in pile.Cards)
                 _cardSnapshot[c] = GetCardHash(c);
 
-            foreach (Node child in container.GetChildren())
-            {
-                container.RemoveChild(child);
-                child.QueueFree();
-            }
-
-            if (pile.Cards.Count == 0)
-                return;
-
             var cardGroups = new System.Collections.Generic.Dictionary<string, (CardModel card, int count)>();
-            var currentCardKeys = new System.Collections.Generic.HashSet<string>();
-
             foreach (var card in pile.Cards)
             {
-                string enchantmentKey = card.Enchantment != null ? card.Enchantment.GetType().Name : "none";
-                string key = $"{card.Title}|{card.IsUpgraded}|{enchantmentKey}";
-                currentCardKeys.Add(key);
-
+                string key = GroupKey(card);
                 if (cardGroups.TryGetValue(key, out var existing))
                     cardGroups[key] = (existing.card, existing.count + 1);
                 else
@@ -468,7 +471,6 @@ namespace sts2decktracker
             }
 
             System.Collections.Generic.List<(CardModel card, int count)> displayGroups;
-
             if (_shuffledOrder == null || _shuffledOrder.Count == 0)
             {
                 displayGroups = new System.Collections.Generic.List<(CardModel card, int count)>(cardGroups.Values);
@@ -476,9 +478,7 @@ namespace sts2decktracker
                 for (int i = displayGroups.Count - 1; i > 0; i--)
                 {
                     int j = random.Next(i + 1);
-                    var temp = displayGroups[i];
-                    displayGroups[i] = displayGroups[j];
-                    displayGroups[j] = temp;
+                    (displayGroups[i], displayGroups[j]) = (displayGroups[j], displayGroups[i]);
                 }
                 _shuffledOrder = displayGroups;
             }
@@ -489,7 +489,7 @@ namespace sts2decktracker
 
                 foreach (var oldGroup in _shuffledOrder)
                 {
-                    string key = $"{oldGroup.card.Title}|{oldGroup.card.IsUpgraded}|{(oldGroup.card.Enchantment != null ? oldGroup.card.Enchantment.GetType().Name : "none")}";
+                    string key = GroupKey(oldGroup.card);
                     if (remainingCards.TryGetValue(key, out var newGroup))
                     {
                         displayGroups.Add(newGroup);
@@ -507,327 +507,486 @@ namespace sts2decktracker
                 _shuffledOrder = displayGroups;
             }
 
-            foreach (var group in displayGroups)
+            var desiredKeys = new System.Collections.Generic.HashSet<string>();
+            foreach (var g in displayGroups)
             {
-                var card = group.card;
-                var count = group.count;
+                if (g.count > 0) desiredKeys.Add(GroupKey(g.card));
+            }
 
-                if (count == 0)
-                    continue;
-
-                try
+            System.Collections.Generic.List<string> toRemove = null;
+            foreach (var kvp in _rowsByKey)
+            {
+                if (!desiredKeys.Contains(kvp.Key))
                 {
-                    var portrait = card.Portrait;
-                    if (portrait != null)
-                    {
-                        int cardHeight = _settings?.CardHeight ?? 32;
-                        int cardWidth = _settings?.CardWidth ?? 200;
-                        int cardImageWidth = _settings?.CardImageWidth ?? 175;
-
-                        var cardRowContainer = new HBoxContainer
-                        {
-                            CustomMinimumSize = new Vector2(cardWidth, cardHeight)
-                        };
-                        cardRowContainer.AddThemeConstantOverride("separation", 2);
-
-                        var clipContainer = new Control
-                        {
-                            CustomMinimumSize = new Vector2(cardImageWidth, cardHeight),
-                            Size = new Vector2(cardImageWidth, cardHeight),
-                            ClipContents = true,
-                            MouseFilter = Control.MouseFilterEnum.Ignore
-                        };
-                        var capturedCard = card;
-                        var hoverTips = new System.Collections.Generic.List<IHoverTip> { new CardHoverTip(capturedCard) };
-                        hoverTips.AddRange(capturedCard.HoverTips);
-                        _cardHoverData.Add((capturedCard, clipContainer, hoverTips));
-
-                        var textureRect = new TextureRect
-                        {
-                            Texture = portrait,
-                            Position = new Vector2(0, -portrait.GetHeight() / 4),
-                            Size = new Vector2(cardImageWidth, portrait.GetHeight() * (float)cardImageWidth / portrait.GetWidth()),
-                            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-                            StretchMode = TextureRect.StretchModeEnum.KeepAspect,
-                            MouseFilter = Control.MouseFilterEnum.Ignore
-                        };
-                        clipContainer.AddChild(textureRect);
-
-                        if (card.Enchantment != null)
-                        {
-                            try
-                            {
-                                var enchantIconPath = card.Enchantment.IntendedIconPath;
-                                if (!string.IsNullOrEmpty(enchantIconPath))
-                                {
-                                    var enchantIcon = ResourceLoader.Load<Texture2D>(enchantIconPath);
-                                    if (enchantIcon != null)
-                                    {
-                                        int enchantIconSize = cardHeight - 6;
-                                        var enchantIconRect = new TextureRect
-                                        {
-                                            Texture = enchantIcon,
-                                            Position = new Vector2(cardImageWidth - enchantIconSize - 4, 2),
-                                            CustomMinimumSize = new Vector2(enchantIconSize, enchantIconSize),
-                                            ExpandMode = TextureRect.ExpandModeEnum.FitWidthProportional,
-                                            StretchMode = TextureRect.StretchModeEnum.KeepAspect,
-                                            MouseFilter = Control.MouseFilterEnum.Ignore
-                                        };
-                                        enchantIconRect.Modulate = new Color(1.5f, 1.3f, 1.8f, 1.0f);
-                                        clipContainer.AddChild(enchantIconRect);
-                                    }
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                GD.PrintErr($"[CardListPanel] Error adding enchantment icon: {ex.Message}");
-                            }
-                        }
-
-                        var countLabel = new Label
-                        {
-                            Text = count.ToString(),
-                            VerticalAlignment = VerticalAlignment.Center,
-                            HorizontalAlignment = HorizontalAlignment.Center,
-                            Position = new Vector2(0, 0),
-                            Size = new Vector2(cardHeight, cardHeight)
-                        };
-                        int countFontSize = _settings?.CardCountFontSize ?? 28;
-                        countLabel.AddThemeFontSizeOverride("font_size", countFontSize);
-                        countLabel.AddThemeColorOverride("font_color", StsColors.gold);
-                        countLabel.AddThemeColorOverride("font_shadow_color", new Color(0, 0, 0, 0.188f));
-                        countLabel.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0, 1));
-                        countLabel.AddThemeConstantOverride("shadow_offset_x", 2);
-                        countLabel.AddThemeConstantOverride("shadow_offset_y", 2);
-                        countLabel.AddThemeConstantOverride("outline_size", 10);
-                        countLabel.AddThemeConstantOverride("shadow_outline_size", 10);
-                        countLabel.AddThemeFontOverride("font", KreonRegular);
-                        countLabel.ApplyLocaleFontSubstitution(FontType.Bold, "font");
-                        clipContainer.AddChild(countLabel);
-
-                        var nameLabel = new Label();
-                        nameLabel.Text = GetCardDisplayName(card);
-                        int nameFontSize = _settings?.CardNameFontSize ?? 24;
-                        nameLabel.AddThemeFontSizeOverride("font_size", nameFontSize);
-
-                        Color titleColor;
-                        Color titleOutlineColor;
-
-                        var colorMode = _settings?.CardColorMode ?? CardColorMode.Full;
-                        if (colorMode == CardColorMode.None)
-                        {
-                            titleColor = StsColors.cream;
-                            titleOutlineColor = StsColors.cardTitleOutlineCommon;
-                        }
-                        else if (card.Enchantment != null)
-                        {
-                            titleColor = new Color(0.85f, 0.6f, 1f, 1f);
-                            titleOutlineColor = new Color(0.3f, 0.05f, 0.45f, 1f);
-                        }
-                        else if (card.CurrentUpgradeLevel > 0)
-                        {
-                            titleColor = StsColors.green;
-                            titleOutlineColor = StsColors.cardTitleOutlineSpecial;
-                        }
-                        else if (colorMode == CardColorMode.Full)
-                        {
-                            titleColor = StsColors.cream;
-                            titleOutlineColor = GetTitleOutlineColorByRarity(card.Rarity);
-                        }
-                        else // UpgradeEnchant - 일반 카드는 무색
-                        {
-                            titleColor = StsColors.cream;
-                            titleOutlineColor = StsColors.cardTitleOutlineCommon;
-                        }
-
-                        nameLabel.AddThemeColorOverride("font_color", titleColor);
-                        nameLabel.AddThemeColorOverride("font_shadow_color", new Color(0, 0, 0, 0.188f));
-                        nameLabel.AddThemeColorOverride("font_outline_color", titleOutlineColor);
-                        nameLabel.AddThemeConstantOverride("shadow_offset_x", 2);
-                        nameLabel.AddThemeConstantOverride("shadow_offset_y", 2);
-                        nameLabel.AddThemeConstantOverride("outline_size", 10);
-                        nameLabel.AddThemeConstantOverride("shadow_outline_size", 10);
-                        nameLabel.AddThemeFontOverride("font", KreonRegular);
-                        nameLabel.ApplyLocaleFontSubstitution(FontType.Bold, "font");
-                        nameLabel.VerticalAlignment = VerticalAlignment.Center;
-                        nameLabel.Size = new Vector2(cardImageWidth, cardHeight);
-                        nameLabel.Position = new Vector2(countFontSize + 2, 0);
-                        clipContainer.AddChild(nameLabel);
-                        cardRowContainer.AddChild(clipContainer);
-
-                        try
-                        {
-                            var energyIcon = card.EnergyIcon;
-                            if (energyIcon != null)
-                            {
-                                string costText;
-                                bool showIcon = true;
-
-                                if (card.EnergyCost.CostsX)
-                                {
-                                    costText = "X";
-                                }
-                                else
-                                {
-                                    int costWithModifiers = card.EnergyCost.GetWithModifiers(CostModifiers.All);
-                                    costText = costWithModifiers.ToString();
-                                    showIcon = costWithModifiers >= 0;
-                                }
-
-                                if (showIcon)
-                                {
-                                    int iconSize = _settings?.CostIconSize ?? 30;
-
-                                    var energyCostContainer = new Control
-                                    {
-                                        CustomMinimumSize = new Vector2(iconSize, iconSize),
-                                        Size = new Vector2(iconSize, iconSize),
-                                        MouseFilter = Control.MouseFilterEnum.Ignore
-                                    };
-
-                                    var energyIconRect = new TextureRect
-                                    {
-                                        Texture = energyIcon,
-                                        CustomMinimumSize = new Vector2(iconSize, iconSize),
-                                        ExpandMode = TextureRect.ExpandModeEnum.FitWidthProportional,
-                                        StretchMode = TextureRect.StretchModeEnum.KeepAspect,
-                                        MouseFilter = Control.MouseFilterEnum.Ignore
-                                    };
-                                    energyCostContainer.AddChild(energyIconRect);
-
-                                    var costLabel = new Label
-                                    {
-                                        Text = costText,
-                                        HorizontalAlignment = HorizontalAlignment.Center,
-                                        VerticalAlignment = VerticalAlignment.Center,
-                                        Size = new Vector2(iconSize, iconSize)
-                                    };
-                                    int costFontSize = _settings?.EnergyCostFontSize ?? 28;
-                                    costLabel.AddThemeFontSizeOverride("font_size", costFontSize);
-
-                                    Color fontColor = StsColors.cream;
-                                    Color outlineColor = card.Pool.EnergyOutlineColor;
-
-                                    if (card.EnergyCost != null && !card.EnergyCost.CostsX && card.EnergyCost.WasJustUpgraded)
-                                    {
-                                        fontColor = StsColors.green;
-                                        outlineColor = StsColors.energyGreenOutline;
-                                    }
-                                    else if (card.CombatState != null)
-                                    {
-                                        CardCostColor costColor = CardCostHelper.GetEnergyCostColor(card, card.CombatState);
-                                        switch (costColor)
-                                        {
-                                            case CardCostColor.Increased:
-                                                fontColor = StsColors.energyBlue;
-                                                outlineColor = StsColors.energyBlueOutline;
-                                                break;
-                                            case CardCostColor.Decreased:
-                                                fontColor = StsColors.green;
-                                                outlineColor = StsColors.energyGreenOutline;
-                                                break;
-                                        }
-                                    }
-
-                                    costLabel.AddThemeColorOverride("font_color", fontColor);
-                                    costLabel.AddThemeColorOverride("font_outline_color", outlineColor);
-                                    costLabel.AddThemeConstantOverride("shadow_offset_x", 2);
-                                    costLabel.AddThemeConstantOverride("shadow_offset_y", 2);
-                                    costLabel.AddThemeConstantOverride("outline_size", 10);
-                                    costLabel.AddThemeConstantOverride("shadow_outline_size", 10);
-                                    costLabel.AddThemeFontOverride("font", KreonRegular);
-                                    costLabel.ApplyLocaleFontSubstitution(FontType.Bold, "font");
-                                    energyCostContainer.AddChild(costLabel);
-                                    cardRowContainer.AddChild(energyCostContainer);
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            GD.PrintErr($"[CardListPanel] Error loading energy icon: {ex.Message}");
-                        }
-
-                        try
-                        {
-                            int starCost = card.GetStarCostWithModifiers();
-                            if (card.HasStarCostX || starCost >= 0)
-                            {
-                                var starIcon = ResourceLoader.Load<Texture2D>("res://images/packed/sprite_fonts/star_icon.png");
-                                if (starIcon != null)
-                                {
-                                    string starCostText = card.HasStarCostX ? "X" : starCost.ToString();
-                                    bool showStarIcon = card.HasStarCostX || starCost >= 0;
-
-                                    if (showStarIcon)
-                                    {
-                                        int iconSize = _settings?.CostIconSize ?? 30;
-
-                                        var starCostContainer = new Control
-                                        {
-                                            CustomMinimumSize = new Vector2(iconSize, iconSize),
-                                            Size = new Vector2(iconSize, iconSize),
-                                            MouseFilter = Control.MouseFilterEnum.Ignore
-                                        };
-
-                                        var starIconRect = new TextureRect
-                                        {
-                                            Texture = starIcon,
-                                            CustomMinimumSize = new Vector2(iconSize, iconSize),
-                                            ExpandMode = TextureRect.ExpandModeEnum.FitWidthProportional,
-                                            StretchMode = TextureRect.StretchModeEnum.KeepAspect,
-                                            MouseFilter = Control.MouseFilterEnum.Ignore
-                                        };
-                                        starCostContainer.AddChild(starIconRect);
-
-                                        var starCostLabel = new Label
-                                        {
-                                            Text = starCostText,
-                                            HorizontalAlignment = HorizontalAlignment.Center,
-                                            VerticalAlignment = VerticalAlignment.Center,
-                                            Size = new Vector2(iconSize, iconSize)
-                                        };
-                                        int starCostFontSize = _settings?.EnergyCostFontSize ?? 28;
-                                        starCostLabel.AddThemeFontSizeOverride("font_size", starCostFontSize);
-                                        starCostLabel.AddThemeColorOverride("font_color", StsColors.cream);
-                                        starCostLabel.AddThemeColorOverride("font_outline_color", card.Pool.EnergyOutlineColor);
-                                        starCostLabel.AddThemeConstantOverride("shadow_offset_x", 2);
-                                        starCostLabel.AddThemeConstantOverride("shadow_offset_y", 2);
-                                        starCostLabel.AddThemeConstantOverride("outline_size", 10);
-                                        starCostLabel.AddThemeConstantOverride("shadow_outline_size", 10);
-                                        starCostLabel.AddThemeFontOverride("font", KreonRegular);
-                                        starCostLabel.ApplyLocaleFontSubstitution(FontType.Bold, "font");
-                                        starCostContainer.AddChild(starCostLabel);
-                                        cardRowContainer.AddChild(starCostContainer);
-                                    }
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            GD.PrintErr($"[CardListPanel] Error loading star icon: {ex.Message}");
-                        }
-
-                        container.AddChild(cardRowContainer);
-                    }
-                    else
-                    {
-                        var label = new Label();
-                        label.Text = GetCardDisplayName(card);
-                        label.AddThemeFontSizeOverride("font_size", 12);
-                        container.AddChild(label);
-                    }
+                    (toRemove ??= new System.Collections.Generic.List<string>()).Add(kvp.Key);
                 }
-                catch (Exception ex)
+            }
+            if (toRemove != null)
+            {
+                foreach (var key in toRemove)
                 {
-                    GD.PrintErr($"[CardListPanel] Error loading card portrait: {ex.Message}");
-                    var label = new Label();
-                    label.Text = GetCardDisplayName(card);
-                    label.AddThemeFontSizeOverride("font_size", 12);
-                    container.AddChild(label);
+                    var row = _rowsByKey[key];
+                    if (GodotObject.IsInstanceValid(row.Root))
+                    {
+                        container.RemoveChild(row.Root);
+                        row.Root.QueueFree();
+                    }
+                    _rowsByKey.Remove(key);
                 }
             }
 
+            _cardHoverData.Clear();
+
+            int desiredIndex = 0;
+            foreach (var group in displayGroups)
+            {
+                if (group.count == 0) continue;
+                string key = GroupKey(group.card);
+
+                if (!_rowsByKey.TryGetValue(key, out var row))
+                {
+                    row = BuildCardRow(group.card, group.count);
+                    if (row == null) continue;
+                    container.AddChild(row.Root);
+                    _rowsByKey[key] = row;
+                }
+                else
+                {
+                    if (row.CountLabel != null)
+                        row.CountLabel.Text = group.count.ToString();
+                    int newCostHash = GetCostHash(group.card);
+                    if (newCostHash != row.CostHash)
+                    {
+                        RebuildCostContainers(row, group.card);
+                        row.CostHash = newCostHash;
+                    }
+                }
+
+                if (row.ClipContainer != null && GodotObject.IsInstanceValid(row.ClipContainer))
+                {
+                    var hoverTips = new System.Collections.Generic.List<IHoverTip> { new CardHoverTip(group.card) };
+                    hoverTips.AddRange(group.card.HoverTips);
+                    _cardHoverData.Add((group.card, row.ClipContainer, hoverTips));
+                }
+
+                if (row.Root.GetIndex() != desiredIndex)
+                    container.MoveChild(row.Root, desiredIndex);
+                desiredIndex++;
+            }
+
             SetMouseIgnoreRecursiveExceptHover(container);
+        }
+
+        private void ClearAllRows()
+        {
+            foreach (var kvp in _rowsByKey)
+            {
+                var row = kvp.Value;
+                if (GodotObject.IsInstanceValid(row.Root))
+                {
+                    if (_cardList != null && row.Root.GetParent() == _cardList)
+                        _cardList.RemoveChild(row.Root);
+                    row.Root.QueueFree();
+                }
+            }
+            _rowsByKey.Clear();
+        }
+
+        private static string GroupKey(CardModel card)
+        {
+            string enchantmentKey = card.Enchantment != null ? card.Enchantment.GetType().Name : "none";
+            int energy = card.EnergyCost.CostsX ? int.MinValue : card.EnergyCost.GetWithModifiers(CostModifiers.All);
+            int star = card.HasStarCostX ? int.MinValue : card.GetStarCostWithModifiers();
+            return $"{card.Title}|{card.IsUpgraded}|{enchantmentKey}|{energy}|{star}";
+        }
+
+        private static int GetCostHash(CardModel c)
+        {
+            int energy = c.EnergyCost.CostsX ? int.MinValue : c.EnergyCost.GetWithModifiers(CostModifiers.All);
+            int star = c.HasStarCostX ? int.MinValue : c.GetStarCostWithModifiers();
+            int costColor = 0;
+            try
+            {
+                if (c.CombatState != null)
+                    costColor = (int)CardCostHelper.GetEnergyCostColor(c, c.CombatState);
+            }
+            catch { }
+            bool justUpgraded = c.EnergyCost != null && !c.EnergyCost.CostsX && c.EnergyCost.WasJustUpgraded;
+            return HashCode.Combine(energy, star, costColor, justUpgraded);
+        }
+
+        private static Texture2D LoadEnchantIconCached(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return null;
+            if (!_enchantIconCache.TryGetValue(path, out var tex))
+            {
+                tex = ResourceLoader.Load<Texture2D>(path);
+                _enchantIconCache[path] = tex;
+            }
+            return tex;
+        }
+
+        private static Texture2D LoadEnergyIconCached(CardModel card)
+        {
+            try
+            {
+                string path = card.VisualCardPool?.EnergyIconPath;
+                if (string.IsNullOrEmpty(path)) return card.EnergyIcon;
+                if (!_energyIconCache.TryGetValue(path, out var tex))
+                {
+                    tex = ResourceLoader.Load<Texture2D>(path);
+                    _energyIconCache[path] = tex;
+                }
+                return tex;
+            }
+            catch
+            {
+                return card.EnergyIcon;
+            }
+        }
+
+        private RowView BuildCardRow(CardModel card, int count)
+        {
+            try
+            {
+                var portrait = card.Portrait;
+                if (portrait == null)
+                {
+                    var fallbackRoot = new HBoxContainer();
+                    var fallbackLabel = new Label();
+                    fallbackLabel.Text = GetCardDisplayName(card);
+                    fallbackLabel.AddThemeFontSizeOverride("font_size", 12);
+                    fallbackRoot.AddChild(fallbackLabel);
+                    return new RowView { Root = fallbackRoot };
+                }
+
+                int cardHeight = _settings?.CardHeight ?? 32;
+                int cardWidth = _settings?.CardWidth ?? 200;
+                int cardImageWidth = _settings?.CardImageWidth ?? 175;
+
+                var cardRowContainer = new HBoxContainer
+                {
+                    CustomMinimumSize = new Vector2(cardWidth, cardHeight)
+                };
+                cardRowContainer.AddThemeConstantOverride("separation", 2);
+
+                var clipContainer = new Control
+                {
+                    CustomMinimumSize = new Vector2(cardImageWidth, cardHeight),
+                    Size = new Vector2(cardImageWidth, cardHeight),
+                    ClipContents = true,
+                    MouseFilter = Control.MouseFilterEnum.Ignore
+                };
+
+                var textureRect = new TextureRect
+                {
+                    Texture = portrait,
+                    Position = new Vector2(0, -portrait.GetHeight() / 4),
+                    Size = new Vector2(cardImageWidth, portrait.GetHeight() * (float)cardImageWidth / portrait.GetWidth()),
+                    ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+                    StretchMode = TextureRect.StretchModeEnum.KeepAspect,
+                    MouseFilter = Control.MouseFilterEnum.Ignore
+                };
+                clipContainer.AddChild(textureRect);
+
+                if (card.Enchantment != null)
+                {
+                    try
+                    {
+                        var enchantIcon = LoadEnchantIconCached(card.Enchantment.IntendedIconPath);
+                        if (enchantIcon != null)
+                        {
+                            int enchantIconSize = cardHeight - 6;
+                            var enchantIconRect = new TextureRect
+                            {
+                                Texture = enchantIcon,
+                                Position = new Vector2(cardImageWidth - enchantIconSize - 4, 2),
+                                CustomMinimumSize = new Vector2(enchantIconSize, enchantIconSize),
+                                ExpandMode = TextureRect.ExpandModeEnum.FitWidthProportional,
+                                StretchMode = TextureRect.StretchModeEnum.KeepAspect,
+                                MouseFilter = Control.MouseFilterEnum.Ignore
+                            };
+                            enchantIconRect.Modulate = new Color(1.5f, 1.3f, 1.8f, 1.0f);
+                            clipContainer.AddChild(enchantIconRect);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        GD.PrintErr($"[CardListPanel] Error adding enchantment icon: {ex.Message}");
+                    }
+                }
+
+                int countFontSize = _settings?.CardCountFontSize ?? 28;
+                var countLabel = new Label
+                {
+                    Text = count.ToString(),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Position = new Vector2(0, 0),
+                    Size = new Vector2(cardHeight, cardHeight)
+                };
+                countLabel.AddThemeFontSizeOverride("font_size", countFontSize);
+                countLabel.AddThemeColorOverride("font_color", StsColors.gold);
+                countLabel.AddThemeColorOverride("font_shadow_color", new Color(0, 0, 0, 0.188f));
+                countLabel.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0, 1));
+                countLabel.AddThemeConstantOverride("shadow_offset_x", 2);
+                countLabel.AddThemeConstantOverride("shadow_offset_y", 2);
+                countLabel.AddThemeConstantOverride("outline_size", 10);
+                countLabel.AddThemeConstantOverride("shadow_outline_size", 10);
+                countLabel.AddThemeFontOverride("font", KreonRegular);
+                countLabel.ApplyLocaleFontSubstitution(FontType.Bold, "font");
+                clipContainer.AddChild(countLabel);
+
+                var nameLabel = new Label();
+                nameLabel.Text = GetCardDisplayName(card);
+                int nameFontSize = _settings?.CardNameFontSize ?? 24;
+                nameLabel.AddThemeFontSizeOverride("font_size", nameFontSize);
+
+                Color titleColor;
+                Color titleOutlineColor;
+                var colorMode = _settings?.CardColorMode ?? CardColorMode.Full;
+                if (colorMode == CardColorMode.None)
+                {
+                    titleColor = StsColors.cream;
+                    titleOutlineColor = StsColors.cardTitleOutlineCommon;
+                }
+                else if (card.Enchantment != null)
+                {
+                    titleColor = new Color(0.85f, 0.6f, 1f, 1f);
+                    titleOutlineColor = new Color(0.3f, 0.05f, 0.45f, 1f);
+                }
+                else if (card.CurrentUpgradeLevel > 0)
+                {
+                    titleColor = StsColors.green;
+                    titleOutlineColor = StsColors.cardTitleOutlineSpecial;
+                }
+                else if (colorMode == CardColorMode.Full)
+                {
+                    titleColor = StsColors.cream;
+                    titleOutlineColor = GetTitleOutlineColorByRarity(card.Rarity);
+                }
+                else
+                {
+                    titleColor = StsColors.cream;
+                    titleOutlineColor = StsColors.cardTitleOutlineCommon;
+                }
+
+                nameLabel.AddThemeColorOverride("font_color", titleColor);
+                nameLabel.AddThemeColorOverride("font_shadow_color", new Color(0, 0, 0, 0.188f));
+                nameLabel.AddThemeColorOverride("font_outline_color", titleOutlineColor);
+                nameLabel.AddThemeConstantOverride("shadow_offset_x", 2);
+                nameLabel.AddThemeConstantOverride("shadow_offset_y", 2);
+                nameLabel.AddThemeConstantOverride("outline_size", 10);
+                nameLabel.AddThemeConstantOverride("shadow_outline_size", 10);
+                nameLabel.AddThemeFontOverride("font", KreonRegular);
+                nameLabel.ApplyLocaleFontSubstitution(FontType.Bold, "font");
+                nameLabel.VerticalAlignment = VerticalAlignment.Center;
+                nameLabel.Size = new Vector2(cardImageWidth, cardHeight);
+                nameLabel.Position = new Vector2(countFontSize + 2, 0);
+                clipContainer.AddChild(nameLabel);
+                cardRowContainer.AddChild(clipContainer);
+
+                var view = new RowView
+                {
+                    Root = cardRowContainer,
+                    ClipContainer = clipContainer,
+                    CountLabel = countLabel,
+                    CostHash = GetCostHash(card)
+                };
+
+                view.EnergyCostContainer = BuildEnergyCostContainer(card);
+                if (view.EnergyCostContainer != null)
+                    cardRowContainer.AddChild(view.EnergyCostContainer);
+
+                view.StarCostContainer = BuildStarCostContainer(card);
+                if (view.StarCostContainer != null)
+                    cardRowContainer.AddChild(view.StarCostContainer);
+
+                return view;
+            }
+            catch (Exception ex)
+            {
+                GD.PrintErr($"[CardListPanel] Error building card row: {ex.Message}");
+                var fallbackRoot = new HBoxContainer();
+                var fallbackLabel = new Label();
+                fallbackLabel.Text = GetCardDisplayName(card);
+                fallbackLabel.AddThemeFontSizeOverride("font_size", 12);
+                fallbackRoot.AddChild(fallbackLabel);
+                return new RowView { Root = fallbackRoot };
+            }
+        }
+
+        private void RebuildCostContainers(RowView row, CardModel card)
+        {
+            if (row.EnergyCostContainer != null && GodotObject.IsInstanceValid(row.EnergyCostContainer))
+            {
+                if (row.EnergyCostContainer.GetParent() == row.Root)
+                    row.Root.RemoveChild(row.EnergyCostContainer);
+                row.EnergyCostContainer.QueueFree();
+                row.EnergyCostContainer = null;
+            }
+            if (row.StarCostContainer != null && GodotObject.IsInstanceValid(row.StarCostContainer))
+            {
+                if (row.StarCostContainer.GetParent() == row.Root)
+                    row.Root.RemoveChild(row.StarCostContainer);
+                row.StarCostContainer.QueueFree();
+                row.StarCostContainer = null;
+            }
+
+            row.EnergyCostContainer = BuildEnergyCostContainer(card);
+            if (row.EnergyCostContainer != null)
+                row.Root.AddChild(row.EnergyCostContainer);
+
+            row.StarCostContainer = BuildStarCostContainer(card);
+            if (row.StarCostContainer != null)
+                row.Root.AddChild(row.StarCostContainer);
+        }
+
+        private Control BuildEnergyCostContainer(CardModel card)
+        {
+            try
+            {
+                var energyIcon = LoadEnergyIconCached(card);
+                if (energyIcon == null) return null;
+
+                string costText;
+                bool showIcon = true;
+                if (card.EnergyCost.CostsX)
+                {
+                    costText = "X";
+                }
+                else
+                {
+                    int costWithModifiers = card.EnergyCost.GetWithModifiers(CostModifiers.All);
+                    costText = costWithModifiers.ToString();
+                    showIcon = costWithModifiers >= 0;
+                }
+                if (!showIcon) return null;
+
+                int iconSize = _settings?.CostIconSize ?? 30;
+                var energyCostContainer = new Control
+                {
+                    CustomMinimumSize = new Vector2(iconSize, iconSize),
+                    Size = new Vector2(iconSize, iconSize),
+                    MouseFilter = Control.MouseFilterEnum.Ignore
+                };
+
+                var energyIconRect = new TextureRect
+                {
+                    Texture = energyIcon,
+                    CustomMinimumSize = new Vector2(iconSize, iconSize),
+                    ExpandMode = TextureRect.ExpandModeEnum.FitWidthProportional,
+                    StretchMode = TextureRect.StretchModeEnum.KeepAspect,
+                    MouseFilter = Control.MouseFilterEnum.Ignore
+                };
+                energyCostContainer.AddChild(energyIconRect);
+
+                var costLabel = new Label
+                {
+                    Text = costText,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Size = new Vector2(iconSize, iconSize)
+                };
+                int costFontSize = _settings?.EnergyCostFontSize ?? 28;
+                costLabel.AddThemeFontSizeOverride("font_size", costFontSize);
+
+                Color fontColor = StsColors.cream;
+                Color outlineColor = card.Pool.EnergyOutlineColor;
+                if (card.EnergyCost != null && !card.EnergyCost.CostsX && card.EnergyCost.WasJustUpgraded)
+                {
+                    fontColor = StsColors.green;
+                    outlineColor = StsColors.energyGreenOutline;
+                }
+                else if (card.CombatState != null)
+                {
+                    CardCostColor costColor = CardCostHelper.GetEnergyCostColor(card, card.CombatState);
+                    switch (costColor)
+                    {
+                        case CardCostColor.Increased:
+                            fontColor = StsColors.energyBlue;
+                            outlineColor = StsColors.energyBlueOutline;
+                            break;
+                        case CardCostColor.Decreased:
+                            fontColor = StsColors.green;
+                            outlineColor = StsColors.energyGreenOutline;
+                            break;
+                    }
+                }
+
+                costLabel.AddThemeColorOverride("font_color", fontColor);
+                costLabel.AddThemeColorOverride("font_outline_color", outlineColor);
+                costLabel.AddThemeConstantOverride("shadow_offset_x", 2);
+                costLabel.AddThemeConstantOverride("shadow_offset_y", 2);
+                costLabel.AddThemeConstantOverride("outline_size", 10);
+                costLabel.AddThemeConstantOverride("shadow_outline_size", 10);
+                costLabel.AddThemeFontOverride("font", KreonRegular);
+                costLabel.ApplyLocaleFontSubstitution(FontType.Bold, "font");
+                energyCostContainer.AddChild(costLabel);
+                return energyCostContainer;
+            }
+            catch (Exception ex)
+            {
+                GD.PrintErr($"[CardListPanel] Error loading energy icon: {ex.Message}");
+                return null;
+            }
+        }
+
+        private Control BuildStarCostContainer(CardModel card)
+        {
+            try
+            {
+                int starCost = card.GetStarCostWithModifiers();
+                if (!card.HasStarCostX && starCost < 0) return null;
+
+                var starIcon = StarIconCached;
+                if (starIcon == null) return null;
+
+                string starCostText = card.HasStarCostX ? "X" : starCost.ToString();
+                int iconSize = _settings?.CostIconSize ?? 30;
+
+                var starCostContainer = new Control
+                {
+                    CustomMinimumSize = new Vector2(iconSize, iconSize),
+                    Size = new Vector2(iconSize, iconSize),
+                    MouseFilter = Control.MouseFilterEnum.Ignore
+                };
+
+                var starIconRect = new TextureRect
+                {
+                    Texture = starIcon,
+                    CustomMinimumSize = new Vector2(iconSize, iconSize),
+                    ExpandMode = TextureRect.ExpandModeEnum.FitWidthProportional,
+                    StretchMode = TextureRect.StretchModeEnum.KeepAspect,
+                    MouseFilter = Control.MouseFilterEnum.Ignore
+                };
+                starCostContainer.AddChild(starIconRect);
+
+                var starCostLabel = new Label
+                {
+                    Text = starCostText,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Size = new Vector2(iconSize, iconSize)
+                };
+                int starCostFontSize = _settings?.EnergyCostFontSize ?? 28;
+                starCostLabel.AddThemeFontSizeOverride("font_size", starCostFontSize);
+                starCostLabel.AddThemeColorOverride("font_color", StsColors.cream);
+                starCostLabel.AddThemeColorOverride("font_outline_color", card.Pool.EnergyOutlineColor);
+                starCostLabel.AddThemeConstantOverride("shadow_offset_x", 2);
+                starCostLabel.AddThemeConstantOverride("shadow_offset_y", 2);
+                starCostLabel.AddThemeConstantOverride("outline_size", 10);
+                starCostLabel.AddThemeConstantOverride("shadow_outline_size", 10);
+                starCostLabel.AddThemeFontOverride("font", KreonRegular);
+                starCostLabel.ApplyLocaleFontSubstitution(FontType.Bold, "font");
+                starCostContainer.AddChild(starCostLabel);
+                return starCostContainer;
+            }
+            catch (Exception ex)
+            {
+                GD.PrintErr($"[CardListPanel] Error loading star icon: {ex.Message}");
+                return null;
+            }
         }
 
         private static void SetMouseIgnoreRecursiveExceptHover(Node node)

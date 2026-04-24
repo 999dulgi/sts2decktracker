@@ -4,6 +4,19 @@ Slay the Spire 2 덱 트래커 Harmony 모드. Godot 4 + C# + HarmonyLib으로 �
 
 ---
 
+## 외부 리소스
+
+- **게임 디컴파일 소스**: `C:\Users\rlawh\sts2Decompile` — 게임 내부 클래스(NCombatUi, NCombatRoom, CardPileCmd 등) 동작을 확인할 때 이 폴더에서 찾는다.
+- **게임 DLL**: `C:\Program Files (x86)\Steam\steamapps\common\Slay the Spire 2\data_sts2_windows_x86_64\sts2.dll` (csproj의 Reference 대상)
+- **모드 배포 폴더**: `C:\Program Files (x86)\Steam\steamapps\common\Slay the Spire 2\mods\SlayTheSpire2DeckTracker` (빌드 시 자동 복사)
+
+### 게임 내부 클래스 메모
+
+- `NCombatUi`는 **싱글턴이 아님** — 일반 `Control` 노드. `NCombatRoom`의 자식(`%CombatUi`)으로 존재하며, 전투마다 `NCombatRoom.Create()`로 새 인스턴스가 생성됨. 따라서 `_Ready` Postfix는 전투당 1회 실행된다.
+- `NCombatRoom.Instance`는 `NRun.Instance?.CombatRoom`을 통한 동적 싱글턴.
+
+---
+
 ## 프로젝트 구조
 
 ```
