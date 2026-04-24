@@ -681,12 +681,11 @@ namespace sts2decktracker
                 var textureRect = new TextureRect
                 {
                     Texture = portrait,
-                    Position = new Vector2(0, -portrait.GetHeight() / 4),
-                    Size = new Vector2(cardImageWidth, portrait.GetHeight() * (float)cardImageWidth / portrait.GetWidth()),
-                    ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-                    StretchMode = TextureRect.StretchModeEnum.KeepAspect,
-                    MouseFilter = Control.MouseFilterEnum.Ignore
+                    StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
+                    MouseFilter = Control.MouseFilterEnum.Ignore,
                 };
+                textureRect.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+                textureRect.OffsetTop = -cardHeight;
                 clipContainer.AddChild(textureRect);
 
                 if (card.Enchantment != null)
