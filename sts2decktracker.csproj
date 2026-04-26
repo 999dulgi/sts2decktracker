@@ -21,6 +21,7 @@
     </PropertyGroup>
     <Message Text="Copying DLL to STS2 mods folder..." Importance="high" />
     <Copy SourceFiles="$(SourceDll)" DestinationFolder="$(ModsFolder)" SkipUnchangedFiles="false" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\sts2decktracker_manifest.json" DestinationFolder="$(ModsFolder)" SkipUnchangedFiles="false" />
     <Message Text="Successfully copied $(SourceDll) to $(ModsFolder)" Importance="high" />
   </Target>
 
