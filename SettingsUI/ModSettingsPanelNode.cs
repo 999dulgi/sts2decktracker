@@ -10,7 +10,7 @@ namespace sts2decktracker
 {
 	public partial class ModSettingsPanelNode : MarginContainer
 	{
-		private ArrowInputRow _drawPileX, _drawPileY, _discardPileX, _discardPileY, _cardSize, _fadeDelay;
+		private ArrowInputRow _drawPileX, _drawPileY, _discardPileX, _discardPileY, _cardWidth, _cardHeight, _fadeDelay;
 		private NSlider _idleOpacitySlider, _activeOpacitySlider;
 		private TextureButton _draggableTickbox, _showCardTooltipTickbox, _rememberCustomPositionTickbox, _scrollableTickbox, _scrollableAutoHeightTickbox;
 		private ArrowInputRow _scrollableHeightRow;
@@ -42,13 +42,15 @@ namespace sts2decktracker
 			_drawPileY = new ArrowInputRow();
 			_discardPileX = new ArrowInputRow();
 			_discardPileY = new ArrowInputRow();
-			_cardSize = new ArrowInputRow();
+			_cardWidth = new ArrowInputRow();
+			_cardHeight = new ArrowInputRow();
 			_fadeDelay = new ArrowInputRow();
 			_vbox.AddChild(_drawPileX);
 			_vbox.AddChild(_drawPileY);
 			_vbox.AddChild(_discardPileX);
 			_vbox.AddChild(_discardPileY);
-			_vbox.AddChild(_cardSize);
+			_vbox.AddChild(_cardWidth);
+			_vbox.AddChild(_cardHeight);
 			_vbox.AddChild(_fadeDelay);
 
 			_vbox.AddChild(new HSeparator());
@@ -63,7 +65,7 @@ namespace sts2decktracker
 			_showCardTooltipTickbox = AddTickboxRow("Show Card", "Show card when you hover the card image");
 			_rememberCustomPositionTickbox = AddTickboxRow("Remember CardList Position", "Remember card panel position when you enable Drag CardList.");
 			_scrollableTickbox = AddTickboxRow("Scrollable", "Limit the card list panel height and scroll through cards");
-			_scrollableAutoHeightTickbox = AddTickboxRow("Auto Height", "Auto: height fills down to Y=700. Manual: fixed height value");
+			_scrollableAutoHeightTickbox = AddTickboxRow("Auto Height", "Auto: height fills down to Y=790. Manual: fixed height value");
 			_scrollableHeightRow = new ArrowInputRow();
 			_vbox.AddChild(_scrollableHeightRow);
 
@@ -86,18 +88,20 @@ namespace sts2decktracker
 			_settings = ModSettings.Load();
 			RefreshValues();
 			
-			_drawPileX.SetupTooltip("X cordinate of draw pile panel.\nCard panel width calculated as card size * 11(12) + 8(16) + margin 20.\nThe number in () is for star cost");
+			_drawPileX.SetupTooltip("X cordinate of draw pile panel");
 			_drawPileY.SetupTooltip("Y cordinate of draw pile panel");
-			_discardPileX.SetupTooltip("X cordinate of discard pile panel.\nCard panel width calculated as card size * 11(12) + 8(16) + margin 10.\nThe number in () is for star cost");
+			_discardPileX.SetupTooltip("X cordinate of discard pile panel");
 			_discardPileY.SetupTooltip("Y cordinate of discard pile panel");
-			_cardSize.SetupTooltip("Card size is used to determine the value of other elements");
+			_cardWidth.SetupTooltip("Card row width in pixels");
+			_cardHeight.SetupTooltip("Card row height in pixels. Also controls font and icon sizes");
 			_fadeDelay.SetupTooltip("Transition time from active to idle state");
 
 			_drawPileX.ValueChanged += v => _settings.DrawPileX = (int)v;
 			_drawPileY.ValueChanged += v => _settings.DrawPileY = (int)v;
 			_discardPileX.ValueChanged += v => _settings.DiscardPileX = (int)v;
 			_discardPileY.ValueChanged += v => _settings.DiscardPileY = (int)v;
-			_cardSize.ValueChanged += v => _settings.CardSize = (int)v;
+			_cardWidth.ValueChanged += v => _settings.CardWidthInt = (int)v;
+			_cardHeight.ValueChanged += v => _settings.CardHeightInt = (int)v;
 			_fadeDelay.ValueChanged += v => _settings.IdleDelaySeconds = v;
 			_idleOpacitySlider.ValueChanged += v => _settings.IdleOpacity = (float)v / 100f;
 			_activeOpacitySlider.ValueChanged += v => _settings.ActiveOpacity = (float)v / 100f;
@@ -304,7 +308,8 @@ namespace sts2decktracker
 			_drawPileY.Setup("Draw Pile Y", _settings.DrawPileY, 0, maxY);
 			_discardPileX.Setup("Discard Pile X", _settings.DiscardPileX, 0, maxX);
 			_discardPileY.Setup("Discard Pile Y", _settings.DiscardPileY, 0, maxY);
-			_cardSize.Setup("Card Size", _settings.CardSize, 12, 48);
+			_cardWidth.Setup("Card Width", _settings.CardWidth, 50, 800);
+			_cardHeight.Setup("Card Height", _settings.CardHeight, 16, 120);
 			_fadeDelay.Setup("Fade Time (s)", _settings.IdleDelaySeconds, 0f, 10f, step: 0.1f);
 			_idleOpacitySlider.Value = _settings.IdleOpacity * 100;
 			_activeOpacitySlider.Value = _settings.ActiveOpacity * 100;

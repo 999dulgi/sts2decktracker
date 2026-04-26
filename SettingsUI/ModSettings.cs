@@ -37,8 +37,11 @@ namespace sts2decktracker
 		[JsonPropertyName("draggable")]
 		public bool Draggable { get; set; } = false;
 
-		[JsonPropertyName("cardSize")]
-		public int CardSize { get; set; } = 28;
+		[JsonPropertyName("cardWidth")]
+		public int CardWidthInt { get; set; } = 280;
+
+		[JsonPropertyName("cardHeight")]
+		public int CardHeightInt { get; set; } = 36;
 
 		[JsonPropertyName("idleOpacity")]
 		public float IdleOpacity { get; set; } = 0.3f;
@@ -74,20 +77,19 @@ namespace sts2decktracker
 		[JsonPropertyName("scrollableHeight")]
 		public int ScrollableHeight { get; set; } = 400;
 
-		public int CardHeight => CardSize + 8;
-		public int CardWidth => CardSize * 10;
+		public int CardHeight => CardHeightInt;
+		public int CardWidth => CardWidthInt;
 		public int PanelWidth => CardWidth + 20;
 		public int PanelHeight => (CardHeight + 3) * 14 + 17;
 		public int CardImageWidth => CardWidth - CostIconSize * 2;
-		public int CardCountFontSize => CardSize + 4;
-		public int CardNameFontSize => CardSize;
-		public int EnergyCostFontSize => CardSize;
-		public int CostIconSize => CardSize + 8;
+		public int CardCountFontSize => CardHeight - 4;
+		public int CardNameFontSize => CardHeight - 8;
+		public int EnergyCostFontSize => CardHeight - 8;
+		public int CostIconSize => CardHeight;
 
 		private static readonly string ConfigPath = Path.Combine(
-			System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData),
-			"SlaytheSpire2",
-			"DeckTracker.config.json"
+			Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? "",
+			"DeckTracker.cfg"
 		);
 
 		public static ModSettings Load()
@@ -129,7 +131,8 @@ namespace sts2decktracker
 					scrollable = Scrollable,
 					scrollableAutoHeight = ScrollableAutoHeight,
 					scrollableHeight = ScrollableHeight,
-					cardSize = CardSize,
+					cardWidth = CardWidthInt,
+					cardHeight = CardHeightInt,
 					idleOpacity = IdleOpacity,
 					activeOpacity = ActiveOpacity,
 					idleDelaySeconds = IdleDelaySeconds
@@ -149,7 +152,8 @@ namespace sts2decktracker
 			DrawPileY = 140;
 			DiscardPileX = 1670;
 			DiscardPileY = 140;
-			CardSize = 28;
+			CardWidthInt = 280;
+			CardHeightInt = 36;
 			IdleOpacity = 0.3f;
 			ActiveOpacity = 1.0f;
 			IdleDelaySeconds = 1.0f;
