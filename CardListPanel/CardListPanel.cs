@@ -46,6 +46,7 @@ namespace sts2decktracker
         private static readonly System.Collections.Generic.Dictionary<string, Texture2D> _enchantIconCache = new();
         private static readonly System.Collections.Generic.Dictionary<string, Texture2D> _energyIconCache = new();
 
+
         private sealed class RowView
         {
             public HBoxContainer Root;
@@ -61,7 +62,8 @@ namespace sts2decktracker
         private Control _miniSettingsPanel;
         private VBoxContainer _buttonStrip;
         private bool _isDraggableLocked = false;
-        private Label _miniCardSizeLabel;
+        private Label _miniCardWidthLabel;
+        private Label _miniCardHeightLabel;
         private Label _miniIdleLabel;
         private Label _miniActiveLabel;
 
@@ -117,7 +119,7 @@ namespace sts2decktracker
 
         public void UpdatePositionPublic() => UpdatePosition();
 
-        private const float ScrollableBottomY = 800f;
+        private const float ScrollableBottomY = 790f;
 
         private void ApplyScrollSettings()
         {
@@ -660,9 +662,9 @@ namespace sts2decktracker
                     return new RowView { Root = fallbackRoot };
                 }
 
-                int cardHeight = _settings?.CardHeight ?? 32;
-                int cardWidth = _settings?.CardWidth ?? 200;
-                int cardImageWidth = _settings?.CardImageWidth ?? 175;
+                int cardHeight = _settings?.CardHeight ?? 36;
+                int cardWidth = _settings?.CardWidth ?? 280;
+                int cardImageWidth = _settings?.CardImageWidth ?? 202;
 
                 var cardRowContainer = new HBoxContainer
                 {
@@ -688,32 +690,11 @@ namespace sts2decktracker
                 textureRect.OffsetTop = -cardHeight;
                 clipContainer.AddChild(textureRect);
 
-                if (card.Enchantment != null)
-                {
-                    try
-                    {
-                        var enchantIcon = LoadEnchantIconCached(card.Enchantment.IntendedIconPath);
-                        if (enchantIcon != null)
-                        {
-                            int enchantIconSize = cardHeight - 6;
-                            var enchantIconRect = new TextureRect
-                            {
-                                Texture = enchantIcon,
-                                Position = new Vector2(cardImageWidth - enchantIconSize - 4, 2),
-                                CustomMinimumSize = new Vector2(enchantIconSize, enchantIconSize),
-                                ExpandMode = TextureRect.ExpandModeEnum.FitWidthProportional,
-                                StretchMode = TextureRect.StretchModeEnum.KeepAspect,
-                                MouseFilter = Control.MouseFilterEnum.Ignore
-                            };
-                            enchantIconRect.Modulate = new Color(1.5f, 1.3f, 1.8f, 1.0f);
-                            clipContainer.AddChild(enchantIconRect);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        GD.PrintErr($"[CardListPanel] Error adding enchantment icon: {ex.Message}");
-                    }
-                }
+                var labelRow = new HBoxContainer();
+                labelRow.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+                labelRow.MouseFilter = MouseFilterEnum.Ignore;
+                labelRow.AddThemeConstantOverride("separation", 0);
+                clipContainer.AddChild(labelRow);
 
                 int countFontSize = _settings?.CardCountFontSize ?? 28;
                 var countLabel = new Label
@@ -721,8 +702,8 @@ namespace sts2decktracker
                     Text = count.ToString(),
                     VerticalAlignment = VerticalAlignment.Center,
                     HorizontalAlignment = HorizontalAlignment.Center,
-                    Position = new Vector2(0, 0),
-                    Size = new Vector2(cardHeight, cardHeight)
+                    CustomMinimumSize = new Vector2(cardHeight, 0),
+                    SizeFlagsVertical = SizeFlags.ExpandFill,
                 };
                 countLabel.AddThemeFontSizeOverride("font_size", countFontSize);
                 countLabel.AddThemeColorOverride("font_color", StsColors.gold);
@@ -734,9 +715,14 @@ namespace sts2decktracker
                 countLabel.AddThemeConstantOverride("shadow_outline_size", 10);
                 countLabel.AddThemeFontOverride("font", KreonRegular);
                 countLabel.ApplyLocaleFontSubstitution(FontType.Bold, "font");
-                clipContainer.AddChild(countLabel);
+                labelRow.AddChild(countLabel);
 
-                var nameLabel = new Label();
+                var nameLabel = new Label
+                {
+                    SizeFlagsHorizontal = SizeFlags.ExpandFill,
+                    SizeFlagsVertical = SizeFlags.ExpandFill,
+                    VerticalAlignment = VerticalAlignment.Center,
+                };
                 nameLabel.Text = GetCardDisplayName(card);
                 int nameFontSize = _settings?.CardNameFontSize ?? 24;
                 nameLabel.AddThemeFontSizeOverride("font_size", nameFontSize);
@@ -779,10 +765,41 @@ namespace sts2decktracker
                 nameLabel.AddThemeConstantOverride("shadow_outline_size", 10);
                 nameLabel.AddThemeFontOverride("font", KreonRegular);
                 nameLabel.ApplyLocaleFontSubstitution(FontType.Bold, "font");
-                nameLabel.VerticalAlignment = VerticalAlignment.Center;
-                nameLabel.Size = new Vector2(cardImageWidth, cardHeight);
-                nameLabel.Position = new Vector2(countFontSize + 2, 0);
-                clipContainer.AddChild(nameLabel);
+                labelRow.AddChild(nameLabel);
+
+                if (card.Enchantment != null)
+                {
+                    try
+                    {
+                        var enchantIcon = LoadEnchantIconCached(card.Enchantment.IntendedIconPath);
+                        if (enchantIcon != null)
+                        {
+                            int enchantIconSize = cardHeight - 6;
+                            float enchantLeftInLabel = (cardImageWidth - enchantIconSize - 4) - cardHeight;
+
+                            nameLabel.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
+                            nameLabel.CustomMinimumSize = new Vector2(enchantLeftInLabel, 0);
+                            nameLabel.ClipText = true;
+
+                            var enchantIconRect = new TextureRect
+                            {
+                                Texture = enchantIcon,
+                                Position = new Vector2(cardImageWidth - enchantIconSize - 4, 2),
+                                CustomMinimumSize = new Vector2(enchantIconSize, enchantIconSize),
+                                ExpandMode = TextureRect.ExpandModeEnum.FitWidthProportional,
+                                StretchMode = TextureRect.StretchModeEnum.KeepAspect,
+                                MouseFilter = Control.MouseFilterEnum.Ignore
+                            };
+                            enchantIconRect.Modulate = new Color(1.5f, 1.3f, 1.8f, 1.0f);
+                            clipContainer.AddChild(enchantIconRect);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        GD.PrintErr($"[CardListPanel] Error adding enchantment icon: {ex.Message}");
+                    }
+                }
+
                 cardRowContainer.AddChild(clipContainer);
 
                 var view = new RowView
@@ -1022,8 +1039,10 @@ namespace sts2decktracker
         private void RefreshMiniPanel()
         {
             if (_settings == null) return;
-            if (_miniCardSizeLabel != null)
-                _miniCardSizeLabel.Text = _settings.CardSize.ToString();
+            if (_miniCardWidthLabel != null)
+                _miniCardWidthLabel.Text = _settings.CardWidth.ToString();
+            if (_miniCardHeightLabel != null)
+                _miniCardHeightLabel.Text = _settings.CardHeight.ToString();
             if (_miniIdleLabel != null)
                 _miniIdleLabel.Text = $"{(int)Math.Round(_settings.IdleOpacity * 100)}%";
             if (_miniActiveLabel != null)
@@ -1044,7 +1063,7 @@ namespace sts2decktracker
             bg.AnchorLeft = 1f; bg.AnchorRight = 1f;
             bg.AnchorTop = 0f; bg.AnchorBottom = 0f;
             bg.OffsetLeft = 4f; bg.OffsetRight = 204f;
-            bg.OffsetTop = 0f; bg.OffsetBottom = 110f;
+            bg.OffsetTop = 0f; bg.OffsetBottom = 140f;
             bg.ZIndex = 20;
             bg.Visible = false;
             bg.MouseFilter = MouseFilterEnum.Stop;
@@ -1066,11 +1085,17 @@ namespace sts2decktracker
             vbox.MouseFilter = MouseFilterEnum.Pass;
             margin.AddChild(vbox);
 
-            var (sizeLabel, sizeRow) = MakeMiniRow("Card Size",
-                () => ChangeSetting(() => _settings.CardSize = Math.Max(12, _settings.CardSize - 1)),
-                () => ChangeSetting(() => _settings.CardSize = Math.Min(48, _settings.CardSize + 1)));
-            _miniCardSizeLabel = sizeLabel;
-            vbox.AddChild(sizeRow);
+            var (widthLabel, widthRow) = MakeMiniRow("Card W",
+                () => ChangeSetting(() => _settings.CardWidthInt = Math.Max(50, _settings.CardWidth - 10)),
+                () => ChangeSetting(() => _settings.CardWidthInt = Math.Min(800, _settings.CardWidth + 10)));
+            _miniCardWidthLabel = widthLabel;
+            vbox.AddChild(widthRow);
+
+            var (heightLabel, heightRow) = MakeMiniRow("Card H",
+                () => ChangeSetting(() => _settings.CardHeightInt = Math.Max(16, _settings.CardHeight - 1)),
+                () => ChangeSetting(() => _settings.CardHeightInt = Math.Min(120, _settings.CardHeight + 1)));
+            _miniCardHeightLabel = heightLabel;
+            vbox.AddChild(heightRow);
 
             var (idleLabel, idleRow) = MakeMiniRow("Idle %",
                 () => ChangeSetting(() => _settings.IdleOpacity = (float)Math.Round(Math.Max(0.0, _settings.IdleOpacity - 0.05), 2)),
