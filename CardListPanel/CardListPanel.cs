@@ -41,10 +41,6 @@ namespace sts2decktracker
         private readonly System.Collections.Generic.List<(CardModel card, Control clip, System.Collections.Generic.List<IHoverTip> tips)> _cardHoverData = new();
         private readonly System.Collections.Generic.Dictionary<CardModel, int> _cardSnapshot = new();
         private readonly System.Collections.Generic.Dictionary<string, RowView> _rowsByKey = new();
-        private static Texture2D _starIconCached;
-        private static Texture2D StarIconCached => _starIconCached ??= ResourceLoader.Load<Texture2D>("res://images/packed/sprite_fonts/star_icon.png");
-        private static readonly System.Collections.Generic.Dictionary<string, Texture2D> _enchantIconCache = new();
-        private static readonly System.Collections.Generic.Dictionary<string, Texture2D> _energyIconCache = new();
 
 
         private sealed class RowView
@@ -617,35 +613,6 @@ namespace sts2decktracker
             return HashCode.Combine(energy, star, costColor, justUpgraded);
         }
 
-        private static Texture2D LoadEnchantIconCached(string path)
-        {
-            if (string.IsNullOrEmpty(path)) return null;
-            if (!_enchantIconCache.TryGetValue(path, out var tex))
-            {
-                tex = ResourceLoader.Load<Texture2D>(path);
-                _enchantIconCache[path] = tex;
-            }
-            return tex;
-        }
-
-        private static Texture2D LoadEnergyIconCached(CardModel card)
-        {
-            try
-            {
-                string path = card.VisualCardPool?.EnergyIconPath;
-                if (string.IsNullOrEmpty(path)) return card.EnergyIcon;
-                if (!_energyIconCache.TryGetValue(path, out var tex))
-                {
-                    tex = ResourceLoader.Load<Texture2D>(path);
-                    _energyIconCache[path] = tex;
-                }
-                return tex;
-            }
-            catch
-            {
-                return card.EnergyIcon;
-            }
-        }
 
         private RowView BuildCardRow(CardModel card, int count)
         {
@@ -771,7 +738,8 @@ namespace sts2decktracker
                 {
                     try
                     {
-                        var enchantIcon = LoadEnchantIconCached(card.Enchantment.IntendedIconPath);
+                        string enchantPath = card.Enchantment.IntendedIconPath;
+                        var enchantIcon = string.IsNullOrEmpty(enchantPath) ? null : ResourceLoader.Load<Texture2D>(enchantPath);
                         if (enchantIcon != null)
                         {
                             int enchantIconSize = cardHeight - 6;
@@ -862,7 +830,8 @@ namespace sts2decktracker
         {
             try
             {
-                var energyIcon = LoadEnergyIconCached(card);
+                string energyIconPath = card.VisualCardPool?.EnergyIconPath;
+                var energyIcon = string.IsNullOrEmpty(energyIconPath) ? card.EnergyIcon : ResourceLoader.Load<Texture2D>(energyIconPath);
                 if (energyIcon == null) return null;
 
                 string costText;
@@ -955,7 +924,7 @@ namespace sts2decktracker
                 int starCost = card.GetStarCostWithModifiers();
                 if (!card.HasStarCostX && starCost < 0) return null;
 
-                var starIcon = StarIconCached;
+                var starIcon = ResourceLoader.Load<Texture2D>("res://images/packed/sprite_fonts/star_icon.png");
                 if (starIcon == null) return null;
 
                 string starCostText = card.HasStarCostX ? "X" : starCost.ToString();
