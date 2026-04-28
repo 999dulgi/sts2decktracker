@@ -9,6 +9,7 @@ using MegaCrit.Sts2.Core.Helpers.Models;
 using MegaCrit.Sts2.Core.Context;
 using MegaCrit.Sts2.Core.HoverTips;
 using MegaCrit.Sts2.Core.Nodes.HoverTips;
+using MegaCrit.Sts2.Core.Nodes.Rooms;
 
 namespace sts2decktracker
 {
@@ -88,6 +89,7 @@ namespace sts2decktracker
             {
                 ClearAllRows();
                 UpdateCardList(_cardList, _currentPile);
+                UpdateDynamicHeight();
             }
         }
 
@@ -125,7 +127,6 @@ namespace sts2decktracker
             {
                 _scrollContainer.SizeFlagsVertical = SizeFlags.ShrinkBegin;
                 if (_cardList != null) _cardList.SizeFlagsVertical = SizeFlags.ShrinkBegin;
-                UpdateScrollHeight();
             }
             else
             {
@@ -135,15 +136,34 @@ namespace sts2decktracker
             }
         }
 
-        private void UpdateScrollHeight()
+        private void UpdateDynamicHeight()
         {
-            if (_scrollContainer == null) return;
-            float height;
-            if (_settings?.ScrollableAutoHeight ?? true)
-                height = Mathf.Max(50f, ScrollableBottomY - GlobalPosition.Y);
+            if (_cardList == null) return;
+            float contentH = _cardList.GetMinimumSize().Y;
+            float panelH;
+
+            if (_settings?.Scrollable ?? false)
+            {
+                float maxH = (_settings?.ScrollableAutoHeight ?? true)
+                    ? Mathf.Max(50f, ScrollableBottomY - GlobalPosition.Y)
+                    : Mathf.Max(50f, _settings?.ScrollableHeight ?? 200f);
+                float cappedH = Mathf.Min(contentH, maxH);
+                if (_scrollContainer != null)
+                    _scrollContainer.CustomMinimumSize = new Vector2(0, cappedH);
+                panelH = cappedH;
+            }
             else
-                height = Mathf.Max(50f, _settings?.ScrollableHeight ?? 400);
-            _scrollContainer.CustomMinimumSize = new Vector2(0, height);
+            {
+                panelH = contentH;
+            }
+
+            panelH = panelH > 0 ? panelH + 20 : 0;
+
+            if (!Mathf.IsEqualApprox(CustomMinimumSize.Y, panelH))
+            {
+                CustomMinimumSize = new Vector2(CustomMinimumSize.X, panelH);
+                Size = new Vector2(Size.X, panelH);
+            }
         }
 
         private static void SetMouseIgnoreRecursive(Node node)
@@ -157,9 +177,8 @@ namespace sts2decktracker
         public override void _Ready()
         {
             var pw = _settings?.PanelWidth ?? 312;
-            var ph = _settings?.PanelHeight ?? 480;
-            CustomMinimumSize = new Vector2(pw, ph);
-            Size = new Vector2(pw, ph);
+            CustomMinimumSize = new Vector2(pw, 0);
+            Size = new Vector2(pw, 0);
             SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
             SizeFlagsVertical = SizeFlags.ShrinkBegin;
             MouseFilter = MouseFilterEnum.Ignore;
@@ -320,9 +339,6 @@ namespace sts2decktracker
             if (_settingsBtn != null)
                 _settingsBtn.Visible = mouseOver;
 
-            if (_settings?.Scrollable ?? false)
-                UpdateScrollHeight();
-
             // Card hover tooltip detection
             if (!(_settings?.ShowCardTooltip ?? true) && _hoveredCard != null)
             {
@@ -408,12 +424,18 @@ namespace sts2decktracker
             if (!_combatStartLogged)
                 _combatStartLogged = true;
 
+            bool intentTransparency = _settings?.IntentTransparency ?? false;
+
             if (_currentPile != pile)
             {
                 _currentPile = pile;
                 UpdateCardList(_cardList, _currentPile);
-                _targetOpacity = _settings?.ActiveOpacity ?? 1.0f;
-                _timeSinceLastChange = 0f;
+                UpdateDynamicHeight();
+                if (!intentTransparency)
+                {
+                    _targetOpacity = _settings?.ActiveOpacity ?? 1.0f;
+                    _timeSinceLastChange = 0f;
+                }
             }
             else if (_currentPile != null)
             {
@@ -434,14 +456,67 @@ namespace sts2decktracker
                     if (_pileType == PileType.Draw)
                         TopCardTracker.PruneCards(_currentPile);
                     UpdateCardList(_cardList, _currentPile);
-                    _targetOpacity = _settings?.ActiveOpacity ?? 1.0f;
-                    _timeSinceLastChange = 0f;
+                    UpdateDynamicHeight();
+                    if (!intentTransparency)
+                    {
+                        _targetOpacity = _settings?.ActiveOpacity ?? 1.0f;
+                        _timeSinceLastChange = 0f;
+                    }
                 }
             }
 
-            _timeSinceLastChange += (float)delta;
-            if (_timeSinceLastChange >= _idleDelaySeconds || (_currentPile != null && _currentPile.IsEmpty))
-                _targetOpacity = _settings?.IdleOpacity ?? 0.3f;
+            if (intentTransparency)
+            {
+                _debugLogTimer -= (float)delta;
+                _targetOpacity = IsOverlappingEnemyCreature()
+                    ? (_settings?.IdleOpacity ?? 0.3f)
+                    : (_settings?.ActiveOpacity ?? 1.0f);
+            }
+            else
+            {
+                _timeSinceLastChange += (float)delta;
+                if (_timeSinceLastChange >= _idleDelaySeconds || (_currentPile != null && _currentPile.IsEmpty))
+                    _targetOpacity = _settings?.IdleOpacity ?? 0.3f;
+            }
+        }
+
+        private float _debugLogTimer = 0f;
+        private bool IsOverlappingEnemyCreature()
+        {
+            var combatRoom = NCombatRoom.Instance;
+            bool doLog = _debugLogTimer <= 0f;
+            if (doLog) _debugLogTimer = 2f;
+
+            if (combatRoom == null)
+            {
+                if (doLog) GD.Print("[IntentDebug] NCombatRoom.Instance is null");
+                return false;
+            }
+
+            var panelRect = GetGlobalRect();
+            if (doLog) GD.Print($"[IntentDebug:{_pileType}] panelRect={panelRect}");
+
+            foreach (var creature in combatRoom.CreatureNodes)
+            {
+                if (!IsInstanceValid(creature)) continue;
+                var entity = creature.Entity;
+                if (entity == null) continue;
+                if (entity.IsPlayer || entity.IsPet) continue;
+                if (creature.IntentContainer == null || !IsInstanceValid(creature.IntentContainer)) continue;
+                foreach (var child in creature.IntentContainer.GetChildren())
+                {
+                    if (child is not Control intentNode || !IsInstanceValid(intentNode)) continue;
+                    var holderVariant = intentNode.Get("_intentHolder");
+                    if (holderVariant.VariantType == Variant.Type.Nil) continue;
+                    var holder = holderVariant.As<Control>();
+                    if (holder == null || !IsInstanceValid(holder)) continue;
+                    var holderRect = holder.GetGlobalRect();
+                    bool overlaps = panelRect.Intersects(holderRect);
+                    if (doLog) GD.Print($"[IntentDebug:{_pileType}] enemy={entity.Monster?.GetType().Name ?? "?"} holderRect={holderRect} overlaps={overlaps}");
+                    if (overlaps) return true;
+                }
+            }
+            return false;
         }
 
         private void UpdateCardList(VBoxContainer container, CardPile pile)

@@ -12,7 +12,7 @@ namespace sts2decktracker
 	{
 		private ArrowInputRow _drawPileX, _drawPileY, _discardPileX, _discardPileY, _cardWidth, _cardHeight, _fadeDelay;
 		private NSlider _idleOpacitySlider, _activeOpacitySlider;
-		private TextureButton _draggableTickbox, _showCardTooltipTickbox, _rememberCustomPositionTickbox, _scrollableTickbox, _scrollableAutoHeightTickbox;
+		private TextureButton _draggableTickbox, _showCardTooltipTickbox, _rememberCustomPositionTickbox, _scrollableTickbox, _scrollableAutoHeightTickbox, _intentTransparencyTickbox;
 		private ArrowInputRow _scrollableHeightRow;
 		private OptionButton _cardColorModeDropdown;
 		private ModSettings _settings;
@@ -64,6 +64,7 @@ namespace sts2decktracker
 			_draggableTickbox = AddTickboxRow("Drag CardList", "Set card panel draggable");
 			_showCardTooltipTickbox = AddTickboxRow("Show Card", "Show card when you hover the card image");
 			_rememberCustomPositionTickbox = AddTickboxRow("Remember CardList Position", "Remember card panel position when you enable Drag CardList.");
+			_intentTransparencyTickbox = AddTickboxRow("Fade on Intent Cover", "Fades panel to Idle Opacity when it overlaps an enemy's intent icon");
 			_scrollableTickbox = AddTickboxRow("Scrollable", "Limit the card list panel height and scroll through cards");
 			_scrollableAutoHeightTickbox = AddTickboxRow("Auto Height", "Auto: height fills down to Y=790. Manual: fixed height value");
 			_scrollableHeightRow = new ArrowInputRow();
@@ -112,6 +113,7 @@ namespace sts2decktracker
 			_draggableTickbox.Toggled += v => _settings.Draggable = v;
 			_showCardTooltipTickbox.Toggled += v => _settings.ShowCardTooltip = v;
 			_rememberCustomPositionTickbox.Toggled += v => _settings.RememberCustomPosition = v;
+			_intentTransparencyTickbox.Toggled += v => _settings.IntentTransparency = v;
 			_scrollableTickbox.Toggled += v => { _settings.Scrollable = v; _scrollableAutoHeightTickbox.GetParent<Control>().Visible = v; _scrollableHeightRow.Visible = v && !_settings.ScrollableAutoHeight; };
 			_scrollableAutoHeightTickbox.Toggled += v => { _settings.ScrollableAutoHeight = v; _scrollableHeightRow.Visible = !v; };
 			_scrollableHeightRow.ValueChanged += v => _settings.ScrollableHeight = (int)v;
@@ -316,6 +318,7 @@ namespace sts2decktracker
 			_draggableTickbox.ButtonPressed = _settings.Draggable;
 			_showCardTooltipTickbox.ButtonPressed = _settings.ShowCardTooltip;
 			_rememberCustomPositionTickbox.ButtonPressed = _settings.RememberCustomPosition;
+			_intentTransparencyTickbox.ButtonPressed = _settings.IntentTransparency;
 			_scrollableTickbox.ButtonPressed = _settings.Scrollable;
 			_scrollableAutoHeightTickbox.ButtonPressed = _settings.ScrollableAutoHeight;
 			_scrollableAutoHeightTickbox.GetParent<Control>().Visible = _settings.Scrollable;

@@ -52,6 +52,9 @@ namespace sts2decktracker
 		[JsonPropertyName("idleDelaySeconds")]
 		public float IdleDelaySeconds { get; set; } = 1.0f;
 
+		[JsonPropertyName("intentTransparency")]
+		public bool IntentTransparency { get; set; } = false;
+
 		[JsonPropertyName("showCardTooltip")]
 		public bool ShowCardTooltip { get; set; } = false;
 
@@ -135,7 +138,8 @@ namespace sts2decktracker
 					cardHeight = CardHeightInt,
 					idleOpacity = IdleOpacity,
 					activeOpacity = ActiveOpacity,
-					idleDelaySeconds = IdleDelaySeconds
+					idleDelaySeconds = IdleDelaySeconds,
+					intentTransparency = IntentTransparency
 				};
 				string json = JsonSerializer.Serialize(saveData, new JsonSerializerOptions { WriteIndented = true });
 				File.WriteAllText(ConfigPath, json);
@@ -157,6 +161,7 @@ namespace sts2decktracker
 			IdleOpacity = 0.3f;
 			ActiveOpacity = 1.0f;
 			IdleDelaySeconds = 1.0f;
+			IntentTransparency = false;
 			ShowCardTooltip = true;
 			Draggable = false;
 			RememberCustomPosition = false;
