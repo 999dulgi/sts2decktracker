@@ -35,6 +35,7 @@ The config file will be created automatically on first run with default values.
   "idleOpacity": 0.3,
   "activeOpacity": 1.0,
   "idleDelaySeconds": 1.0,
+  "intentTransparency": false,
   "draggable": false,
   "showCardTooltip": false,
   "rememberCustomPosition": false,
@@ -51,15 +52,16 @@ The config file will be created automatically on first run with default values.
 - **discardPileX/discardPileY**: Position of the discard pile panel
 - **cardWidth**: Width of each card row in pixels
 - **cardHeight**: Height of each card row in pixels. Also controls font and icon sizes.
-- **idleOpacity/activeOpacity**: Opacity when cards haven't changed / when they just changed (0.0 = fully transparent, 1.0 = fully opaque)
+- **idleOpacity/activeOpacity**: Opacity when idle / when cards just changed (0.0 = fully transparent, 1.0 = fully opaque)
 - **idleDelaySeconds**: Seconds before the panel fades back to idle opacity after a card change
+- **intentTransparency**: When enabled, the panel stays at Active Opacity at all times and fades to Idle Opacity only when it overlaps an enemy's intent icon. The time-based fade (`idleDelaySeconds`) is disabled while this option is on.
 - **draggable**: Allow dragging the panel to reposition it. A small ↺ reset button appears on hover to return it to the default position.
 - **showCardTooltip**: Show card info when hovering over a card image
 - **rememberCustomPosition**: Save the dragged position when exiting the game (requires `draggable: true`)
 - **cardColorMode**: Card name color scheme — `0` = no color (all plain), `1` = upgraded/enchanted only, `2` = full rarity colors
-- **scrollable**: Enable scrolling when the card list exceeds the panel height
-- **scrollableAutoHeight**: Automatically set scroll height based on panel Y position (`height = 790 - Y`). When `false`, uses `scrollableHeight`.
-- **scrollableHeight**: Fixed scroll height in pixels (used when `scrollableAutoHeight` is `false`)
+- **scrollable**: Enable scrolling. The panel grows with content and stops expanding once it reaches the height limit.
+- **scrollableAutoHeight**: Automatically set the height limit based on panel Y position (`height = 790 - Y`). When `false`, uses `scrollableHeight`.
+- **scrollableHeight**: Fixed height limit in pixels (used when `scrollableAutoHeight` is `false`)
 
 ### Cautions
 
@@ -107,6 +109,7 @@ Slay the Spire 2 덱 트레커 모드입니다.
   "idleOpacity": 0.3,
   "activeOpacity": 1.0,
   "idleDelaySeconds": 1.0,
+  "intentTransparency": false,
   "draggable": false,
   "showCardTooltip": false,
   "rememberCustomPosition": false,
@@ -123,15 +126,16 @@ Slay the Spire 2 덱 트레커 모드입니다.
 - **discardPileX/discardPileY**: 디스카드 파일 패널의 위치
 - **cardWidth**: 각 카드 행의 너비 (픽셀)
 - **cardHeight**: 각 카드 행의 높이 (픽셀). 폰트 및 아이콘 크기도 이 값에 따라 결정됩니다.
-- **idleOpacity/activeOpacity**: 카드가 변경되지 않았을 때 / 변경되었을 때의 투명도 (0.0 = 완전 투명, 1.0 = 완전 불투명)
+- **idleOpacity/activeOpacity**: 유휴 상태 / 카드 변경 직후의 투명도 (0.0 = 완전 투명, 1.0 = 완전 불투명)
 - **idleDelaySeconds**: 카드 변경 후 idle 투명도로 돌아오기까지의 대기 시간 (초)
+- **intentTransparency**: 활성화 시 패널이 항상 Active Opacity를 유지하다가, 적의 인텐트 아이콘을 가릴 때만 Idle Opacity로 페이드됩니다. 이 옵션이 켜져 있으면 시간 기반 페이드(`idleDelaySeconds`)는 비활성화됩니다.
 - **draggable**: 패널을 드래그해서 위치를 변경할 수 있게 합니다. 패널에 마우스를 올리면 ↺ 버튼이 표시되어 기본 위치로 초기화할 수 있습니다.
 - **showCardTooltip**: 카드 이미지에 마우스를 올리면 카드 정보를 표시합니다.
 - **rememberCustomPosition**: 게임 종료 시 드래그한 위치를 저장합니다. (`draggable: true` 필요)
 - **cardColorMode**: 카드 이름 색상 모드 — `0` = 색상 없음 (모두 기본색), `1` = 강화/인챈트만 색상 표시, `2` = 희귀도 포함 전체 색상
-- **scrollable**: 카드 목록이 패널 높이를 초과할 때 스크롤 가능하게 합니다.
-- **scrollableAutoHeight**: 패널 Y 위치에 따라 스크롤 높이를 자동으로 설정합니다 (`height = 790 - Y`). `false`이면 `scrollableHeight`를 사용합니다.
-- **scrollableHeight**: 고정 스크롤 높이 (픽셀 단위, `scrollableAutoHeight`가 `false`일 때 사용)
+- **scrollable**: 스크롤 활성화. 패널이 내용에 맞게 커지다가 높이 한계에 도달하면 스크롤됩니다.
+- **scrollableAutoHeight**: 패널 Y 위치에 따라 높이 한계를 자동 설정합니다 (`height = 790 - Y`). `false`이면 `scrollableHeight`를 사용합니다.
+- **scrollableHeight**: 고정 높이 한계 (픽셀 단위, `scrollableAutoHeight`가 `false`일 때 사용)
 
 ### 주의사항
 
