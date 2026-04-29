@@ -467,7 +467,6 @@ namespace sts2decktracker
 
             if (intentTransparency)
             {
-                _debugLogTimer -= (float)delta;
                 _targetOpacity = IsOverlappingEnemyCreature()
                     ? (_settings?.IdleOpacity ?? 0.3f)
                     : (_settings?.ActiveOpacity ?? 1.0f);
@@ -480,22 +479,11 @@ namespace sts2decktracker
             }
         }
 
-        private float _debugLogTimer = 0f;
         private bool IsOverlappingEnemyCreature()
         {
             var combatRoom = NCombatRoom.Instance;
-            bool doLog = _debugLogTimer <= 0f;
-            if (doLog) _debugLogTimer = 2f;
-
-            if (combatRoom == null)
-            {
-                if (doLog) GD.Print("[IntentDebug] NCombatRoom.Instance is null");
-                return false;
-            }
-
+            if (combatRoom == null) return false;
             var panelRect = GetGlobalRect();
-            if (doLog) GD.Print($"[IntentDebug:{_pileType}] panelRect={panelRect}");
-
             foreach (var creature in combatRoom.CreatureNodes)
             {
                 if (!IsInstanceValid(creature)) continue;
@@ -510,10 +498,8 @@ namespace sts2decktracker
                     if (holderVariant.VariantType == Variant.Type.Nil) continue;
                     var holder = holderVariant.As<Control>();
                     if (holder == null || !IsInstanceValid(holder)) continue;
-                    var holderRect = holder.GetGlobalRect();
-                    bool overlaps = panelRect.Intersects(holderRect);
-                    if (doLog) GD.Print($"[IntentDebug:{_pileType}] enemy={entity.Monster?.GetType().Name ?? "?"} holderRect={holderRect} overlaps={overlaps}");
-                    if (overlaps) return true;
+                    if (panelRect.Intersects(holder.GetGlobalRect()))
+                        return true;
                 }
             }
             return false;
