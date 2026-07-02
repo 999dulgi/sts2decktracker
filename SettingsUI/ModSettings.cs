@@ -14,6 +14,13 @@ namespace sts2decktracker
 		Full = 2        // 원래 설정대로 (희귀도 포함)
 	}
 
+	public enum CardSortMode
+	{
+		Random = 0,        // 기존 방식: 무작위 섞기
+		Alphabetical = 1,  // 이름순
+		Cost = 2           // 코스트순 (동일 코스트면 이름순)
+	}
+
 	public class ModSettings
 	{
 		[JsonPropertyName("drawPileX")]
@@ -69,6 +76,16 @@ namespace sts2decktracker
 		{
 			get => (CardColorMode)CardColorModeInt;
 			set => CardColorModeInt = (int)value;
+		}
+
+		[JsonPropertyName("cardSortMode")]
+		public int CardSortModeInt { get; set; } = (int)CardSortMode.Random;
+
+		[JsonIgnore]
+		public CardSortMode CardSortMode
+		{
+			get => (CardSortMode)CardSortModeInt;
+			set => CardSortModeInt = (int)value;
 		}
 
 		[JsonPropertyName("scrollable")]
@@ -131,6 +148,7 @@ namespace sts2decktracker
 					showCardTooltip = ShowCardTooltip,
 					rememberCustomPosition = RememberCustomPosition,
 					cardColorMode = CardColorModeInt,
+					cardSortMode = CardSortModeInt,
 					scrollable = Scrollable,
 					scrollableAutoHeight = ScrollableAutoHeight,
 					scrollableHeight = ScrollableHeight,
@@ -166,6 +184,7 @@ namespace sts2decktracker
 			Draggable = false;
 			RememberCustomPosition = false;
 			CardColorMode = CardColorMode.Full;
+			CardSortMode = CardSortMode.Random;
 			Scrollable = false;
 			ScrollableAutoHeight = true;
 			ScrollableHeight = 400;

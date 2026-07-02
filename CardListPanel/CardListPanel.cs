@@ -533,11 +533,26 @@ namespace sts2decktracker
             if (_shuffledOrder == null || _shuffledOrder.Count == 0)
             {
                 displayGroups = new System.Collections.Generic.List<(CardModel card, int count)>(cardGroups.Values);
-                var random = new System.Random();
-                for (int i = displayGroups.Count - 1; i > 0; i--)
+                switch (_settings?.CardSortMode ?? CardSortMode.Random)
                 {
-                    int j = random.Next(i + 1);
-                    (displayGroups[i], displayGroups[j]) = (displayGroups[j], displayGroups[i]);
+                    case CardSortMode.Alphabetical:
+                        displayGroups.Sort((a, b) => string.Compare(a.card.Title, b.card.Title, StringComparison.OrdinalIgnoreCase));
+                        break;
+                    case CardSortMode.Cost:
+                        displayGroups.Sort((a, b) =>
+                        {
+                            int cmp = GetSortEnergy(a.card).CompareTo(GetSortEnergy(b.card));
+                            return cmp != 0 ? cmp : string.Compare(a.card.Title, b.card.Title, StringComparison.OrdinalIgnoreCase);
+                        });
+                        break;
+                    default:
+                        var random = new System.Random();
+                        for (int i = displayGroups.Count - 1; i > 0; i--)
+                        {
+                            int j = random.Next(i + 1);
+                            (displayGroups[i], displayGroups[j]) = (displayGroups[j], displayGroups[i]);
+                        }
+                        break;
                 }
                 _shuffledOrder = displayGroups;
             }
@@ -649,6 +664,11 @@ namespace sts2decktracker
                 }
             }
             _rowsByKey.Clear();
+        }
+
+        private static int GetSortEnergy(CardModel card)
+        {
+            return card.EnergyCost.CostsX ? int.MaxValue : card.EnergyCost.GetWithModifiers(CostModifiers.All);
         }
 
         private static string GroupKey(CardModel card)

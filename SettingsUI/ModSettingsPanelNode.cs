@@ -15,6 +15,7 @@ namespace sts2decktracker
 		private TextureButton _draggableTickbox, _showCardTooltipTickbox, _rememberCustomPositionTickbox, _scrollableTickbox, _scrollableAutoHeightTickbox, _intentTransparencyTickbox;
 		private ArrowInputRow _scrollableHeightRow;
 		private OptionButton _cardColorModeDropdown;
+		private OptionButton _cardSortModeDropdown;
 		private ModSettings _settings;
 		private VBoxContainer _vbox;
 
@@ -71,6 +72,7 @@ namespace sts2decktracker
 			_vbox.AddChild(_scrollableHeightRow);
 
 			_cardColorModeDropdown = AddDropdownRow("Card Name Color", new[] { "None", "Upgrade & Enchant", "Full (Rarity)" });
+			_cardSortModeDropdown = AddDropdownRow("Initial Sort", new[] { "Random", "Alphabetical", "Cost" });
 
 			_vbox.AddChild(new HSeparator());
 
@@ -118,6 +120,7 @@ namespace sts2decktracker
 			_scrollableAutoHeightTickbox.Toggled += v => { _settings.ScrollableAutoHeight = v; _scrollableHeightRow.Visible = !v; };
 			_scrollableHeightRow.ValueChanged += v => _settings.ScrollableHeight = (int)v;
 			_cardColorModeDropdown.ItemSelected += i => _settings.CardColorMode = (CardColorMode)i;
+			_cardSortModeDropdown.ItemSelected += i => _settings.CardSortMode = (CardSortMode)i;
 		}
 
 		private static NButton BuildGameButton(string text)
@@ -325,6 +328,7 @@ namespace sts2decktracker
 			_scrollableHeightRow.Setup("Scrollable Height", _settings.ScrollableHeight, 100, 1080);
 			_scrollableHeightRow.Visible = _settings.Scrollable && !_settings.ScrollableAutoHeight;
 			_cardColorModeDropdown.Selected = _settings.CardColorModeInt;
+			_cardSortModeDropdown.Selected = _settings.CardSortModeInt;
 		}
 
 		private void OnApplyPressed()
