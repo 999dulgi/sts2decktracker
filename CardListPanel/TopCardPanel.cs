@@ -48,6 +48,8 @@ namespace sts2decktracker
             _currentOpacity = _targetOpacity;
             _idleDelaySeconds = settings?.IdleDelaySeconds ?? 2.0f;
             Modulate = new Color(1, 1, 1, _currentOpacity);
+            if (_currentPile != null)
+                Refresh();
         }
 
         public void SetDrawPilePanel(CardListPanel panel)
@@ -100,8 +102,11 @@ namespace sts2decktracker
             if (_currentPile == null) return;
             TopCardTracker.PruneCards(_currentPile);
             Refresh();
-            _targetOpacity = _settings?.ActiveOpacity ?? 1.0f;
-            _timeSinceLastChange = 0f;
+            if (!(_settings?.IntentTransparency ?? false))
+            {
+                _targetOpacity = _settings?.ActiveOpacity ?? 1.0f;
+                _timeSinceLastChange = 0f;
+            }
         }
 
         public void Refresh()
@@ -204,23 +209,8 @@ namespace sts2decktracker
                 nameLabel.Text = topCard.Title;
                 nameLabel.AddThemeFontSizeOverride("font_size", _settings?.CardNameFontSize ?? 24);
 
-                Color titleColor;
-                Color titleOutlineColor;
-                if (topCard.Enchantment != null)
-                {
-                    titleColor = new Color(0.85f, 0.6f, 1f, 1f);
-                    titleOutlineColor = new Color(0.3f, 0.05f, 0.45f, 1f);
-                }
-                else if (topCard.CurrentUpgradeLevel == 0)
-                {
-                    titleColor = StsColors.cream;
-                    titleOutlineColor = GetTitleOutlineColorByRarity(topCard.Rarity);
-                }
-                else
-                {
-                    titleColor = StsColors.green;
-                    titleOutlineColor = StsColors.cardTitleOutlineSpecial;
-                }
+                var colorMode = _settings?.CardColorMode ?? CardColorMode.Full;
+                var (titleColor, titleOutlineColor) = CardColorHelper.GetTitleColors(topCard, colorMode);
 
                 nameLabel.AddThemeColorOverride("font_color", titleColor);
                 nameLabel.AddThemeColorOverride("font_shadow_color", new Color(0, 0, 0, 0.188f));
@@ -359,25 +349,6 @@ namespace sts2decktracker
             SetMouseIgnoreRecursive(this);
         }
 
-        private static Color GetTitleOutlineColorByRarity(CardRarity rarity)
-        {
-            return rarity switch
-            {
-                CardRarity.None => StsColors.cardTitleOutlineCommon,
-                CardRarity.Basic => StsColors.cardTitleOutlineCommon,
-                CardRarity.Common => StsColors.cardTitleOutlineCommon,
-                CardRarity.Token => StsColors.cardTitleOutlineCommon,
-                CardRarity.Uncommon => StsColors.cardTitleOutlineUncommon,
-                CardRarity.Rare => StsColors.cardTitleOutlineRare,
-                CardRarity.Curse => StsColors.cardTitleOutlineCurse,
-                CardRarity.Quest => StsColors.cardTitleOutlineQuest,
-                CardRarity.Status => StsColors.cardTitleOutlineStatus,
-                CardRarity.Event => StsColors.cardTitleOutlineSpecial,
-                CardRarity.Ancient => StsColors.cardTitleOutlineCommon,
-                _ => StsColors.cardTitleOutlineCommon
-            };
-        }
-
         public override void _Process(double delta)
         {
             if (_drawPilePanel != null && GodotObject.IsInstanceValid(_drawPilePanel))
@@ -427,9 +398,18 @@ namespace sts2decktracker
                 Refresh();
             }
 
-            _timeSinceLastChange += (float)delta;
-            if (_timeSinceLastChange >= _idleDelaySeconds)
-                _targetOpacity = _settings?.IdleOpacity ?? 0.3f;
+            if (_settings?.IntentTransparency ?? false)
+            {
+                _targetOpacity = IntentOverlapHelper.IsOverlappingEnemyCreature(this)
+                    ? (_settings?.IdleOpacity ?? 0.3f)
+                    : (_settings?.ActiveOpacity ?? 1.0f);
+            }
+            else
+            {
+                _timeSinceLastChange += (float)delta;
+                if (_timeSinceLastChange >= _idleDelaySeconds)
+                    _targetOpacity = _settings?.IdleOpacity ?? 0.3f;
+            }
         }
     }
 }

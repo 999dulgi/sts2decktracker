@@ -467,7 +467,7 @@ namespace sts2decktracker
 
             if (intentTransparency)
             {
-                _targetOpacity = IsOverlappingEnemyCreature()
+                _targetOpacity = IntentOverlapHelper.IsOverlappingEnemyCreature(this)
                     ? (_settings?.IdleOpacity ?? 0.3f)
                     : (_settings?.ActiveOpacity ?? 1.0f);
             }
@@ -477,32 +477,6 @@ namespace sts2decktracker
                 if (_timeSinceLastChange >= _idleDelaySeconds || (_currentPile != null && _currentPile.IsEmpty))
                     _targetOpacity = _settings?.IdleOpacity ?? 0.3f;
             }
-        }
-
-        private bool IsOverlappingEnemyCreature()
-        {
-            var combatRoom = NCombatRoom.Instance;
-            if (combatRoom == null) return false;
-            var panelRect = GetGlobalRect();
-            foreach (var creature in combatRoom.CreatureNodes)
-            {
-                if (!IsInstanceValid(creature)) continue;
-                var entity = creature.Entity;
-                if (entity == null) continue;
-                if (entity.IsPlayer || entity.IsPet) continue;
-                if (creature.IntentContainer == null || !IsInstanceValid(creature.IntentContainer)) continue;
-                foreach (var child in creature.IntentContainer.GetChildren())
-                {
-                    if (child is not Control intentNode || !IsInstanceValid(intentNode)) continue;
-                    var holderVariant = intentNode.Get("_intentHolder");
-                    if (holderVariant.VariantType == Variant.Type.Nil) continue;
-                    var holder = holderVariant.As<Control>();
-                    if (holder == null || !IsInstanceValid(holder)) continue;
-                    if (panelRect.Intersects(holder.GetGlobalRect()))
-                        return true;
-                }
-            }
-            return false;
         }
 
         private void UpdateCardList(VBoxContainer container, CardPile pile)
@@ -775,34 +749,8 @@ namespace sts2decktracker
                 int nameFontSize = _settings?.CardNameFontSize ?? 24;
                 nameLabel.AddThemeFontSizeOverride("font_size", nameFontSize);
 
-                Color titleColor;
-                Color titleOutlineColor;
                 var colorMode = _settings?.CardColorMode ?? CardColorMode.Full;
-                if (colorMode == CardColorMode.None)
-                {
-                    titleColor = StsColors.cream;
-                    titleOutlineColor = StsColors.cardTitleOutlineCommon;
-                }
-                else if (card.Enchantment != null)
-                {
-                    titleColor = new Color(0.85f, 0.6f, 1f, 1f);
-                    titleOutlineColor = new Color(0.3f, 0.05f, 0.45f, 1f);
-                }
-                else if (card.CurrentUpgradeLevel > 0)
-                {
-                    titleColor = StsColors.green;
-                    titleOutlineColor = StsColors.cardTitleOutlineSpecial;
-                }
-                else if (colorMode == CardColorMode.Full)
-                {
-                    titleColor = StsColors.cream;
-                    titleOutlineColor = GetTitleOutlineColorByRarity(card.Rarity);
-                }
-                else
-                {
-                    titleColor = StsColors.cream;
-                    titleOutlineColor = StsColors.cardTitleOutlineCommon;
-                }
+                var (titleColor, titleOutlineColor) = CardColorHelper.GetTitleColors(card, colorMode);
 
                 nameLabel.AddThemeColorOverride("font_color", titleColor);
                 nameLabel.AddThemeColorOverride("font_shadow_color", new Color(0, 0, 0, 0.188f));
@@ -1194,25 +1142,6 @@ namespace sts2decktracker
             row.AddChild(plusBtn);
 
             return (valueLabel, row);
-        }
-
-        private static Color GetTitleOutlineColorByRarity(CardRarity rarity)
-        {
-            return rarity switch
-            {
-                CardRarity.None => StsColors.cardTitleOutlineCommon,
-                CardRarity.Basic => StsColors.cardTitleOutlineCommon,
-                CardRarity.Common => StsColors.cardTitleOutlineCommon,
-                CardRarity.Token => StsColors.cardTitleOutlineCommon,
-                CardRarity.Uncommon => StsColors.cardTitleOutlineUncommon,
-                CardRarity.Rare => StsColors.cardTitleOutlineRare,
-                CardRarity.Curse => StsColors.cardTitleOutlineCurse,
-                CardRarity.Quest => StsColors.cardTitleOutlineQuest,
-                CardRarity.Status => StsColors.cardTitleOutlineStatus,
-                CardRarity.Event => StsColors.cardTitleOutlineSpecial,
-                CardRarity.Ancient => StsColors.cardTitleOutlineCommon,
-                _ => StsColors.cardTitleOutlineCommon
-            };
         }
     }
 }

@@ -174,35 +174,34 @@ namespace sts2decktracker
 				foreach (Node child in __instance.GetChildren())
 				{
 					if (child is CardListPanel panel)
+					{
 						panel.Visible = false;
+						panel.QueueFree();
+					}
 					else if (child is TopCardPanel topPanel)
+					{
 						topPanel.Visible = false;
+						topPanel.QueueFree();
+					}
 				}
 			}
 			catch (System.Exception ex)
 			{
-				GD.PrintErr($"[DeckTrackerCombatWonPatch] Failed to hide panels: {ex.Message}");
+				GD.PrintErr($"[DeckTrackerCombatWonPatch] Failed to remove panels: {ex.Message}");
 			}
 		}
 	}
 
-	[HarmonyPatch]
+	// CardPile.AddInternal은 CardPileCmd.Add(명시적 Top 추가)와 CardCmd.Transform(같은 인덱스에
+	// 교체 카드 재삽입)이 모두 거쳐가는 단일 지점이므로, index==0으로 Draw 파일에 들어오는 카드를
+	// 여기서 감시하면 "맨 위 카드가 변화(transform)"된 경우에도 새 카드가 자동으로 추적된다.
+	[HarmonyPatch(typeof(CardPile), nameof(CardPile.AddInternal))]
 	public static class CardPileTopTrackPatch
 	{
-		static System.Reflection.MethodInfo TargetMethod()
+		public static void Prefix(CardPile __instance, CardModel card, int index)
 		{
-			var abstractModelType = AccessTools.TypeByName("MegaCrit.Sts2.Core.Models.AbstractModel");
-			return AccessTools.Method(typeof(CardPileCmd), nameof(CardPileCmd.Add),
-				new[] { typeof(IEnumerable<CardModel>), typeof(CardPile), typeof(CardPilePosition), abstractModelType, typeof(bool) });
-		}
-
-		public static void Prefix(IEnumerable<CardModel> cards, CardPile newPile, CardPilePosition position)
-		{
-			if (position == CardPilePosition.Top && newPile?.Type == PileType.Draw)
-			{
-				foreach (var card in cards)
-					TopCardTracker.MarkAsIntendedTop(card);
-			}
+			if (index == 0 && __instance.Type == PileType.Draw)
+				TopCardTracker.MarkAsIntendedTop(card);
 		}
 	}
 
