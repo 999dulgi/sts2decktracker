@@ -234,11 +234,26 @@ namespace sts2decktracker
 				return false;
 			try
 			{
-				var field = mod.GetType().GetField("assembly",
-					BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-				if (field != null)
+				var modType = mod.GetType();
+				var bindingFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
+
+				// 게임 버전에 따라 Mod.assemblies(List<Assembly>, 신버전) 또는
+				// Mod.assembly(Assembly, 구버전) 중 존재하는 필드를 사용한다.
+				var assembliesField = modType.GetField("assemblies", bindingFlags);
+				if (assembliesField?.GetValue(mod) is System.Collections.IEnumerable assemblies)
 				{
-					string val = field.GetValue(mod)?.ToString() ?? "";
+					foreach (var assembly in assemblies)
+					{
+						string val = assembly?.ToString() ?? "";
+						if (val.Contains("sts2decktracker") || val.Contains("Slay the Spire 2 Deck Tracker"))
+							return true;
+					}
+				}
+
+				var assemblyField = modType.GetField("assembly", bindingFlags);
+				if (assemblyField != null)
+				{
+					string val = assemblyField.GetValue(mod)?.ToString() ?? "";
 					if (val.Contains("sts2decktracker") || val.Contains("Slay the Spire 2 Deck Tracker"))
 						return true;
 				}
