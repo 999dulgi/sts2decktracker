@@ -1,0 +1,21 @@
+[gd_resource type="ShaderMaterial" load_steps=4 format=3 uid="uid://cbsvtqx3j8w3s"]
+
+[ext_resource type="Shader" uid="uid://dkxjcjuk5h8wv" path="res://sts2decktracker/texture/galvanized/vfx_ui_card_affliction_galvanized_main_shader.gdshader" id="1_p30d7"]
+
+[sub_resource type="Gradient" id="Gradient_p30d7"]
+interpolation_mode = 2
+offsets = PackedFloat32Array(0.19999999, 0.9)
+colors = PackedColorArray(0.2, 0.8, 1, 1, 0.9019608, 0.99215686, 1, 1)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_sw666"]
+gradient = SubResource("Gradient_p30d7")
+
+[resource]
+shader = ExtResource("1_p30d7")
+shader_parameter/blink_st = Vector4(0, 1, 0.67, 0)
+shader_parameter/blink_smoothstep = Vector2(0.2, 0.6)
+shader_parameter/lut = SubResource("GradientTexture1D_sw666")
+shader_parameter/distortion_st = Vector4(1, 1, -0.3, 0)
+shader_parameter/distortion_offset = -0.2
+shader_parameter/distortion_intensity = 0.15
+shader_parameter/smoothstep_factors = Vector2(0.7, 0.3)

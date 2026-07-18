@@ -1,0 +1,78 @@
+[gd_scene load_steps=5 format=3 uid="uid://dno7rvl27m8wv"]
+
+[ext_resource type="Texture2D" uid="uid://c3c4xqvfnmc7q" path="res://sts2decktracker/texture/ui_card_border_vignette.png" id="1_vx3ob"]
+[ext_resource type="Texture2D" uid="uid://cim8j8ir7qjrk" path="res://sts2decktracker/texture/ui_card_border_glow.png" id="2_t6nlw"]
+[ext_resource type="Material" uid="uid://c54i5w1m55b8i" path="res://sts2decktracker/texture/entangled/vfx_ui_card_affliction_entangled_main.tres" id="3_yuiec"]
+[ext_resource type="Texture2D" uid="uid://d2xr20akvnulm" path="res://sts2decktracker/texture/entangled/ui_card_entangled_main.png" id="4_rig8s"]
+
+[node name="Tainted" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_right = -896.0
+offset_bottom = -392.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="mask" type="ColorRect" parent="."]
+clip_children = 1
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="vignette" type="TextureRect" parent="mask"]
+self_modulate = Color(0.2, 0, 0.2509804, 0.6)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("1_vx3ob")
+expand_mode = 2
+stretch_mode = 6
+
+[node name="glow" type="NinePatchRect" parent="mask"]
+self_modulate = Color(0.7019608, 0.2, 0.8509804, 1)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2_t6nlw")
+region_rect = Rect2(0, 0, 256, 256)
+patch_margin_left = 16
+patch_margin_top = 16
+patch_margin_right = 16
+patch_margin_bottom = 16
+
+[node name="border" type="Control" parent="mask"]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -256.0
+offset_right = -256.0
+grow_horizontal = 0
+
+[node name="vine" type="TextureRect" parent="mask/border"]
+modulate = Color(0.7019608, 0.2, 0.8509804, 1)
+texture_repeat = 2
+material = ExtResource("3_yuiec")
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = 19.0
+offset_top = 138.0
+offset_right = 275.0
+offset_bottom = 394.0
+grow_horizontal = 0
+rotation = -1.5707964
+texture = ExtResource("4_rig8s")
+expand_mode = 2

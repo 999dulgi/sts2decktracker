@@ -1,0 +1,27 @@
+[gd_resource type="ShaderMaterial" load_steps=6 format=3 uid="uid://s4tu1q0hv3mp"]
+
+[ext_resource type="Shader" uid="uid://cwm2v2stsx0u" path="res://sts2decktracker/texture/vfx_flipbook_shader.gdshader" id="1_v0fvs"]
+
+[sub_resource type="Curve" id="Curve_v0fvs"]
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0]
+point_count = 1
+
+[sub_resource type="CurveTexture" id="CurveTexture_2vprv"]
+curve = SubResource("Curve_v0fvs")
+
+[sub_resource type="Gradient" id="Gradient_xa2cf"]
+colors = PackedColorArray(0.23137255, 0.7490196, 1, 1, 1, 1, 1, 1)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_rppkg"]
+gradient = SubResource("Gradient_xa2cf")
+
+[resource]
+shader = ExtResource("1_v0fvs")
+shader_parameter/pivot_offset = Vector2(0.25, 0.27)
+shader_parameter/lut = SubResource("GradientTexture1D_rppkg")
+shader_parameter/frame_count = 4.0
+shader_parameter/flipbook_size = Vector2(2, 2)
+shader_parameter/flipbook_curve = SubResource("CurveTexture_2vprv")
+shader_parameter/use_erosion_texture = 0.0
+shader_parameter/erosion_offset = 0.1
+shader_parameter/use_hue_shift = 0.0

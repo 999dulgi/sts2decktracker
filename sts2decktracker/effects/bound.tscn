@@ -1,0 +1,84 @@
+[gd_scene load_steps=5 format=3 uid="uid://dgy3dks7ibi1i"]
+
+[ext_resource type="Texture2D" uid="uid://c3c4xqvfnmc7q" path="res://sts2decktracker/texture/ui_card_border_vignette.png" id="1_12v8k"]
+[ext_resource type="Texture2D" uid="uid://cim8j8ir7qjrk" path="res://sts2decktracker/texture/ui_card_border_glow.png" id="2_xbkbc"]
+[ext_resource type="Texture2D" uid="uid://bkmrrlx36eyiw" path="res://sts2decktracker/texture/bound/ui_card_bound_main.png" id="4_lyjl8"]
+[ext_resource type="Material" uid="uid://crwrhejsydnat" path="res://sts2decktracker/texture/bound/vfx_ui_card_affliction_bound_main.tres" id="5_main"]
+
+[node name="Bound" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_right = -896.0
+offset_bottom = -392.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="mask" type="ColorRect" parent="."]
+clip_children = 1
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="vignette" type="TextureRect" parent="mask"]
+self_modulate = Color(0.14901961, 0.6, 0.3137255, 0.1254902)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("1_12v8k")
+expand_mode = 2
+stretch_mode = 6
+
+[node name="glow" type="NinePatchRect" parent="mask"]
+self_modulate = Color(0.54901963, 1, 0.3019608, 1)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2_xbkbc")
+region_rect = Rect2(0, 0, 256, 256)
+patch_margin_left = 16
+patch_margin_top = 16
+patch_margin_right = 16
+patch_margin_bottom = 16
+
+[node name="chain" type="TextureRect" parent="mask"]
+modulate = Color(0.5137255, 0.81960785, 0.24705882, 0.78431374)
+texture_repeat = 2
+material = ExtResource("5_main")
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = 23.0
+offset_top = -20.0
+offset_right = 87.0
+offset_bottom = 44.0
+grow_horizontal = 0
+scale = Vector2(-1, 1)
+texture = ExtResource("4_lyjl8")
+expand_mode = 2
+stretch_mode = 6
+
+[node name="chain2" type="TextureRect" parent="mask"]
+modulate = Color(0.5137255, 0.81960785, 0.24705882, 0.78431374)
+texture_repeat = 2
+material = ExtResource("5_main")
+layout_mode = 1
+offset_left = -25.0
+offset_top = -13.0
+offset_right = 39.0
+offset_bottom = 51.0
+texture = ExtResource("4_lyjl8")
+expand_mode = 2
+stretch_mode = 6

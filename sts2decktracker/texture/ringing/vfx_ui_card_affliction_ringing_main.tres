@@ -1,0 +1,42 @@
+[gd_resource type="ShaderMaterial" load_steps=9 format=3 uid="uid://d8c3xf8m2k5y"]
+
+[ext_resource type="Shader" uid="uid://b86ujf441leob" path="res://sts2decktracker/texture/ringing/vfx_ui_card_affliction_ringing_main_shader.gdshader" id="1_3cmsj"]
+
+[sub_resource type="Curve" id="Curve_3cmsj"]
+_limits = [0.09756088, 0.3, 0.0, 1.0]
+_data = [Vector2(0, 0.09756088), 0.0, 0.0, 0, 1, Vector2(0.118987344, 0.09756088), 0.0, 6.003725, 0, 0, Vector2(0.162, 0.3), 0.0, 1.5092203e-07, 0, 0, Vector2(0.6202532, 0.09756088), 0.0, 0.0, 0, 0]
+point_count = 4
+
+[sub_resource type="Curve" id="Curve_r125r"]
+_limits = [0.14634138, 0.35, 0.0, 1.0]
+_data = [Vector2(0, 0.14634138), 0.0, 0.0, 0, 1, Vector2(0.15949368, 0.14634138), 0.0, 6.657757, 0, 0, Vector2(0.19999999, 0.35), 0.0, 0.0, 0, 0, Vector2(0.6607595, 0.14634138), 0.0, 0.0, 0, 0]
+point_count = 4
+
+[sub_resource type="Curve" id="Curve_foawe"]
+_limits = [0.2, 0.4, 0.0, 1.0]
+_data = [Vector2(0, 0.20121944), 0.0, 0.0, 0, 0, Vector2(0.19999999, 0.2), 0.0, 6.0614777, 0, 0, Vector2(0.24050632, 0.4), 0.0, 0.0, 0, 0, Vector2(0.6962026, 0.2), 0.0, 0.0, 0, 0]
+point_count = 4
+
+[sub_resource type="CurveXYZTexture" id="CurveXYZTexture_65ua1"]
+curve_x = SubResource("Curve_3cmsj")
+curve_y = SubResource("Curve_r125r")
+curve_z = SubResource("Curve_foawe")
+
+[sub_resource type="Curve" id="Curve_65ua1"]
+_limits = [-1.0, 1.0, 0.0, 1.0]
+_data = [Vector2(0, 0.5487804), 0.0, -2.7022595, 0, 0, Vector2(1, -0.30487812), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="Curve" id="Curve_0en2r"]
+_data = [Vector2(0, 1), 0.0, -2.1332757, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="CurveXYZTexture" id="CurveXYZTexture_u66vv"]
+curve_x = SubResource("Curve_65ua1")
+curve_y = SubResource("Curve_0en2r")
+
+[resource]
+shader = ExtResource("1_3cmsj")
+shader_parameter/animation_speed = 0.4
+shader_parameter/ring_base_alpha = SubResource("CurveXYZTexture_65ua1")
+shader_parameter/thin_ring_animation = SubResource("CurveXYZTexture_u66vv")

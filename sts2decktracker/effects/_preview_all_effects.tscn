@@ -1,0 +1,172 @@
+[gd_scene load_steps=8 format=3 uid="uid://64hq6qbvhbvx"]
+
+[ext_resource type="PackedScene" uid="uid://7ejk4pnhpixu" path="res://sts2decktracker/effects/hexed.tscn" id="1_hexed"]
+[ext_resource type="PackedScene" uid="uid://dgy3dks7ibi1i" path="res://sts2decktracker/effects/bound.tscn" id="2_bound"]
+[ext_resource type="PackedScene" uid="uid://b3a8qr54hbw7h" path="res://sts2decktracker/effects/galvanized.tscn" id="3_galvanized"]
+[ext_resource type="PackedScene" uid="uid://e3cbx52u6wp8" path="res://sts2decktracker/effects/ringing.tscn" id="4_ringing"]
+[ext_resource type="PackedScene" uid="uid://f70mbsckwmbk" path="res://sts2decktracker/effects/smog.tscn" id="5_smog"]
+[ext_resource type="PackedScene" uid="uid://cb47uhw3aujrh" path="res://sts2decktracker/effects/entangled.tscn" id="6_entangled"]
+[ext_resource type="PackedScene" uid="uid://dno7rvl27m8wv" path="res://sts2decktracker/effects/tainted.tscn" id="7_tainted"]
+
+[node name="PreviewAllEffects" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 400.0
+offset_bottom = 340.0
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.12, 0.12, 0.12, 1)
+
+[node name="Rows" type="VBoxContainer" parent="."]
+layout_mode = 1
+offset_left = 10.0
+offset_top = 10.0
+offset_right = 290.0
+offset_bottom = 330.0
+theme_override_constants/separation = 6
+
+[node name="Row_Hexed" type="Control" parent="Rows"]
+custom_minimum_size = Vector2(280, 32)
+layout_mode = 2
+
+[node name="Effect" parent="Rows/Row_Hexed" instance=ExtResource("1_hexed")]
+layout_mode = 1
+offset_right = 0.0
+offset_bottom = 0.0
+
+[node name="Label" type="Label" parent="Rows/Row_Hexed"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "Hexed"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Row_Bound" type="Control" parent="Rows"]
+custom_minimum_size = Vector2(280, 32)
+layout_mode = 2
+
+[node name="Effect" parent="Rows/Row_Bound" instance=ExtResource("2_bound")]
+layout_mode = 1
+offset_right = 0.0
+offset_bottom = 0.0
+
+[node name="Label" type="Label" parent="Rows/Row_Bound"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "Bound"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Row_Galvanized" type="Control" parent="Rows"]
+custom_minimum_size = Vector2(280, 32)
+layout_mode = 2
+
+[node name="Effect" parent="Rows/Row_Galvanized" instance=ExtResource("3_galvanized")]
+layout_mode = 1
+offset_right = 0.0
+offset_bottom = 0.0
+
+[node name="Label" type="Label" parent="Rows/Row_Galvanized"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "Galvanized"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Row_Ringing" type="Control" parent="Rows"]
+custom_minimum_size = Vector2(280, 32)
+layout_mode = 2
+
+[node name="Effect" parent="Rows/Row_Ringing" instance=ExtResource("4_ringing")]
+layout_mode = 1
+offset_right = 0.0
+offset_bottom = 0.0
+
+[node name="Label" type="Label" parent="Rows/Row_Ringing"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "Ringing"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Row_Smog" type="Control" parent="Rows"]
+custom_minimum_size = Vector2(280, 32)
+layout_mode = 2
+
+[node name="Effect" parent="Rows/Row_Smog" instance=ExtResource("5_smog")]
+layout_mode = 1
+offset_right = 0.0
+offset_bottom = 0.0
+
+[node name="Label" type="Label" parent="Rows/Row_Smog"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "Smog"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Row_Entangled" type="Control" parent="Rows"]
+custom_minimum_size = Vector2(280, 32)
+layout_mode = 2
+
+[node name="Effect" parent="Rows/Row_Entangled" instance=ExtResource("6_entangled")]
+layout_mode = 1
+offset_right = 0.0
+offset_bottom = 0.0
+
+[node name="Label" type="Label" parent="Rows/Row_Entangled"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "Entangled"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Row_Tainted" type="Control" parent="Rows"]
+custom_minimum_size = Vector2(280, 32)
+layout_mode = 2
+
+[node name="Effect" parent="Rows/Row_Tainted" instance=ExtResource("7_tainted")]
+layout_mode = 1
+offset_right = 0.0
+offset_bottom = 0.0
+
+[node name="Label" type="Label" parent="Rows/Row_Tainted"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "Tainted"
+horizontal_alignment = 1
+vertical_alignment = 1

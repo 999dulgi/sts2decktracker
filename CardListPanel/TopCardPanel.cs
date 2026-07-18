@@ -167,6 +167,10 @@ namespace sts2decktracker
                     clipContainer.AddChild(textureRect);
                 }
 
+                // 오른쪽 끝부터 배지(인챈트/임시 키워드)를 차례로 배치하는 커서.
+                float badgeCursorRight = cardImageWidth - 4;
+                int badgeIconSize = cardHeight - 6;
+
                 if (topCard.Enchantment != null)
                 {
                     try
@@ -177,24 +181,73 @@ namespace sts2decktracker
                             var enchantIcon = ResourceLoader.Load<Texture2D>(enchantIconPath);
                             if (enchantIcon != null)
                             {
-                                int enchantIconSize = cardHeight - 6;
                                 var enchantIconRect = new TextureRect
                                 {
                                     Texture = enchantIcon,
-                                    Position = new Vector2(cardImageWidth - enchantIconSize - 4, 2),
-                                    CustomMinimumSize = new Vector2(enchantIconSize, enchantIconSize),
+                                    Position = new Vector2(badgeCursorRight - badgeIconSize, 2),
+                                    CustomMinimumSize = new Vector2(badgeIconSize, badgeIconSize),
                                     ExpandMode = TextureRect.ExpandModeEnum.FitWidthProportional,
                                     StretchMode = TextureRect.StretchModeEnum.KeepAspect,
                                     MouseFilter = Control.MouseFilterEnum.Ignore
                                 };
                                 enchantIconRect.Modulate = new Color(1.5f, 1.3f, 1.8f, 1.0f);
                                 clipContainer.AddChild(enchantIconRect);
+                                badgeCursorRight -= badgeIconSize + 2;
                             }
                         }
                     }
                     catch (Exception ex)
                     {
                         GD.PrintErr($"[TopCardPanel] Error adding enchantment icon: {ex.Message}");
+                    }
+                }
+
+                string tempKeywordIconPath = CardListPanel.GetTemporaryKeywordIconPath(topCard);
+                if (tempKeywordIconPath != null)
+                {
+                    try
+                    {
+                        var tempKeywordIcon = ResourceLoader.Exists(tempKeywordIconPath)
+                            ? ResourceLoader.Load<Texture2D>(tempKeywordIconPath)
+                            : null;
+                        if (tempKeywordIcon != null)
+                        {
+                            var tempKeywordIconRect = new TextureRect
+                            {
+                                Texture = tempKeywordIcon,
+                                Position = new Vector2(badgeCursorRight - badgeIconSize, 2),
+                                CustomMinimumSize = new Vector2(badgeIconSize, badgeIconSize),
+                                ExpandMode = TextureRect.ExpandModeEnum.FitWidthProportional,
+                                StretchMode = TextureRect.StretchModeEnum.KeepAspect,
+                                MouseFilter = Control.MouseFilterEnum.Ignore
+                            };
+                            clipContainer.AddChild(tempKeywordIconRect);
+                            badgeCursorRight -= badgeIconSize + 2;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        GD.PrintErr($"[TopCardPanel] Error adding temporary keyword icon: {ex.Message}");
+                    }
+                }
+
+                if (topCard.Affliction != null)
+                {
+                    try
+                    {
+                        var afflictionScene = CardListPanel.GetAfflictionEffectScene(topCard.Affliction);
+                        if (afflictionScene != null)
+                        {
+                            var afflictionInstance = afflictionScene.Instantiate<Control>();
+                            afflictionInstance.MouseFilter = Control.MouseFilterEnum.Ignore;
+                            clipContainer.AddChild(afflictionInstance);
+                            
+                            afflictionInstance.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        GD.PrintErr($"[TopCardPanel] Error adding affliction effect: {ex.Message}");
                     }
                 }
 

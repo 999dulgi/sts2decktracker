@@ -1,0 +1,51 @@
+[gd_scene load_steps=4 format=3 uid="uid://e3cbx52u6wp8"]
+
+[ext_resource type="Material" uid="uid://d8c3xf8m2k5y" path="res://sts2decktracker/texture/ringing/vfx_ui_card_affliction_ringing_main.tres" id="2_ndjgg"]
+[ext_resource type="Texture2D" uid="uid://cim8j8ir7qjrk" path="res://sts2decktracker/texture/ui_card_border_glow.png" id="2_pwtpc"]
+[ext_resource type="Texture2D" uid="uid://dbn6kou2mivns" path="res://sts2decktracker/texture/ringing/ui_card_ringing_main.png" id="2_qqohe"]
+
+[node name="Ringing" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_right = -896.0
+offset_bottom = -392.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="mask" type="ColorRect" parent="."]
+clip_children = 1
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="glow" type="NinePatchRect" parent="mask"]
+self_modulate = Color(0.68235296, 0.9882353, 1, 1)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2_pwtpc")
+region_rect = Rect2(0, 0, 256, 256)
+patch_margin_left = 16
+patch_margin_top = 16
+patch_margin_right = 16
+patch_margin_bottom = 16
+
+[node name="ring" type="TextureRect" parent="mask"]
+material = ExtResource("2_ndjgg")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2_qqohe")
+expand_mode = 2
+stretch_mode = 6

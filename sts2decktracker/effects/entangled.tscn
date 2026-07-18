@@ -1,0 +1,101 @@
+[gd_scene load_steps=6 format=3 uid="uid://cb47uhw3aujrh"]
+
+[ext_resource type="Texture2D" uid="uid://c3c4xqvfnmc7q" path="res://sts2decktracker/texture/ui_card_border_vignette.png" id="1_8tgws"]
+[ext_resource type="Texture2D" uid="uid://cim8j8ir7qjrk" path="res://sts2decktracker/texture/ui_card_border_glow.png" id="2_ixx0n"]
+[ext_resource type="Material" uid="uid://c54i5w1m55b8i" path="res://sts2decktracker/texture/entangled/vfx_ui_card_affliction_entangled_main.tres" id="3_1rtsa"]
+[ext_resource type="Texture2D" uid="uid://d2xr20akvnulm" path="res://sts2decktracker/texture/entangled/ui_card_entangled_main.png" id="4_sfe6j"]
+[ext_resource type="PackedScene" uid="uid://bfg3sjkrhkvb5" path="res://sts2decktracker/effects/particle/entangled_leaf.tscn" id="5_sfe6j"]
+
+[node name="Entangled" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_right = -896.0
+offset_bottom = -392.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="mask" type="ColorRect" parent="."]
+clip_children = 1
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="vignette" type="TextureRect" parent="mask"]
+self_modulate = Color(0.2, 0.07058824, 0, 0.3764706)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("1_8tgws")
+expand_mode = 2
+stretch_mode = 6
+
+[node name="glow" type="NinePatchRect" parent="mask"]
+self_modulate = Color(0.84705883, 0.47843137, 0.35686275, 1)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2_ixx0n")
+region_rect = Rect2(0, 0, 256, 256)
+patch_margin_left = 16
+patch_margin_top = 16
+patch_margin_right = 16
+patch_margin_bottom = 16
+
+[node name="border" type="Control" parent="mask"]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -256.0
+offset_right = -256.0
+grow_horizontal = 0
+
+[node name="vine" type="TextureRect" parent="mask/border"]
+modulate = Color(0.84705883, 0.47843137, 0.35686275, 1)
+texture_repeat = 2
+material = ExtResource("3_1rtsa")
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = 19.0
+offset_top = 138.0
+offset_right = 275.0
+offset_bottom = 394.0
+grow_horizontal = 0
+rotation = -1.5707964
+texture = ExtResource("4_sfe6j")
+expand_mode = 2
+
+[node name="leaf4" parent="mask/border" instance=ExtResource("5_sfe6j")]
+position = Vector2(227.00002, 16.999998)
+rotation = -1.193805
+scale = Vector2(0.15, 0.15)
+
+[node name="leaf3" parent="mask/border" instance=ExtResource("5_sfe6j")]
+self_modulate = Color(0.8242486, 0.97111315, 0.5738672, 1)
+position = Vector2(172, 11.999989)
+rotation = -2.38761
+scale = Vector2(0.2, 0.2)
+
+[node name="leaf2" parent="mask/border" instance=ExtResource("5_sfe6j")]
+self_modulate = Color(0.67406064, 1, 0.43406782, 1)
+position = Vector2(112, 11.999992)
+rotation = 0.3298672
+scale = Vector2(0.2, 0.2)
+
+[node name="leaf" parent="mask/border" instance=ExtResource("5_sfe6j")]
+position = Vector2(126, 20)
+rotation = 2.5446901
+scale = Vector2(0.3, 0.3)

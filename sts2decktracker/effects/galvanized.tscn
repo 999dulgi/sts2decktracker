@@ -1,0 +1,103 @@
+[gd_scene load_steps=6 format=3 uid="uid://b3a8qr54hbw7h"]
+
+[ext_resource type="Texture2D" uid="uid://c3c4xqvfnmc7q" path="res://sts2decktracker/texture/ui_card_border_vignette.png" id="1_4fot3"]
+[ext_resource type="Texture2D" uid="uid://cim8j8ir7qjrk" path="res://sts2decktracker/texture/ui_card_border_glow.png" id="2_thwt8"]
+[ext_resource type="Material" uid="uid://cbsvtqx3j8w3s" path="res://sts2decktracker/texture/galvanized/vfx_ui_card_affliction_galvanized_main.tres" id="3_kwur4"]
+[ext_resource type="Texture2D" uid="uid://bb3mb84tjv8xy" path="res://sts2decktracker/texture/galvanized/ui_card_galvanized_main.png" id="4_ao2g6"]
+[ext_resource type="PackedScene" uid="uid://b7ma7bidtkdqx" path="res://sts2decktracker/effects/particle/corner_lightning.tscn" id="5_ao2g6"]
+
+[node name="Galvanized" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_right = -896.0
+offset_bottom = -392.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="mask" type="ColorRect" parent="."]
+clip_children = 1
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="vignette" type="TextureRect" parent="mask"]
+self_modulate = Color(0, 0.63529414, 1, 0.2509804)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("1_4fot3")
+expand_mode = 2
+stretch_mode = 6
+
+[node name="glow" type="NinePatchRect" parent="mask"]
+self_modulate = Color(0.5019608, 0.8745098, 1, 1)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2_thwt8")
+region_rect = Rect2(0, 0, 256, 256)
+patch_margin_left = 16
+patch_margin_top = 16
+patch_margin_right = 16
+patch_margin_bottom = 16
+
+[node name="lightning" type="Control" parent="mask"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="main" type="TextureRect" parent="mask/lightning"]
+texture_repeat = 2
+material = ExtResource("3_kwur4")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("4_ao2g6")
+expand_mode = 2
+stretch_mode = 6
+
+[node name="Control" type="Control" parent="mask/lightning"]
+layout_mode = 1
+anchors_preset = 0
+offset_left = 1.0
+offset_top = 2.0
+offset_right = 41.0
+offset_bottom = 42.0
+
+[node name="lightning2" parent="mask/lightning/Control" instance=ExtResource("5_ao2g6")]
+position = Vector2(6, 6)
+scale = Vector2(0.4, 0.4)
+
+[node name="Control2" type="Control" parent="mask/lightning"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -40.0
+offset_top = -40.0
+grow_horizontal = 0
+grow_vertical = 0
+
+[node name="lightning1" parent="mask/lightning/Control2" instance=ExtResource("5_ao2g6")]
+position = Vector2(32, 32)
+rotation = 3.1415927
+scale = Vector2(0.4, 0.4)

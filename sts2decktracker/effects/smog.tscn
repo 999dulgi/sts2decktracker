@@ -1,0 +1,65 @@
+[gd_scene load_steps=5 format=3 uid="uid://f70mbsckwmbk"]
+
+[ext_resource type="Texture2D" uid="uid://c3c4xqvfnmc7q" path="res://sts2decktracker/texture/ui_card_border_vignette.png" id="1_noedv"]
+[ext_resource type="Texture2D" uid="uid://cim8j8ir7qjrk" path="res://sts2decktracker/texture/ui_card_border_glow.png" id="2_ed8aj"]
+[ext_resource type="Material" uid="uid://ce3b7ljxc06n8" path="res://sts2decktracker/texture/smog/vfx_ui_card_affliction_smog_main.tres" id="3_0yr5y"]
+[ext_resource type="Texture2D" uid="uid://d1cixjhqsqlsx" path="res://sts2decktracker/texture/smog/vfx_noise_1.png" id="4_q8sh4"]
+
+[node name="Smog" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_right = -896.0
+offset_bottom = -392.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="mask" type="ColorRect" parent="."]
+clip_children = 1
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="vignette" type="TextureRect" parent="mask"]
+self_modulate = Color(0.05490196, 0, 0.101960786, 0.2509804)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("1_noedv")
+expand_mode = 2
+stretch_mode = 6
+
+[node name="glow" type="NinePatchRect" parent="mask"]
+self_modulate = Color(0.7921569, 0.47843137, 0.7921569, 1)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2_ed8aj")
+region_rect = Rect2(0, 0, 256, 256)
+patch_margin_left = 16
+patch_margin_top = 16
+patch_margin_right = 16
+patch_margin_bottom = 16
+
+[node name="smog" type="TextureRect" parent="mask"]
+texture_repeat = 2
+material = ExtResource("3_0yr5y")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("4_q8sh4")
+expand_mode = 2
+stretch_mode = 6

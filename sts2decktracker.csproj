@@ -14,15 +14,32 @@
     </Reference>
   </ItemGroup>
 
-  <Target Name="CopyToModsFolder" AfterTargets="Build">
+  <PropertyGroup>
+    <ModsFolder>C:\Program Files (x86)\Steam\steamapps\common\Slay the Spire 2\mods\SlayTheSpire2DeckTracker</ModsFolder>
+    <GodotEditorExe>C:\megadot\MegaDot_v4.5.1-stable_mono_win64.exe</GodotEditorExe>
+  </PropertyGroup>
+
+  <Target Name="CopyToModsFolder" AfterTargets="Build;Publish"
+          Condition="'$(IsInnerGodotExport)' != 'true'">
     <PropertyGroup>
-      <ModsFolder>C:\Program Files (x86)\Steam\steamapps\common\Slay the Spire 2\mods\SlayTheSpire2DeckTracker</ModsFolder>
       <SourceDll>$(OutputPath)sts2decktracker.dll</SourceDll>
     </PropertyGroup>
+    <MakeDir Directories="$(ModsFolder)" />
     <Message Text="Copying DLL to STS2 mods folder..." Importance="high" />
     <Copy SourceFiles="$(SourceDll)" DestinationFolder="$(ModsFolder)" SkipUnchangedFiles="false" />
     <Copy SourceFiles="$(MSBuildProjectDirectory)\sts2decktracker_manifest.json" DestinationFolder="$(ModsFolder)" SkipUnchangedFiles="false" />
     <Message Text="Successfully copied $(SourceDll) to $(ModsFolder)" Importance="high" />
+  </Target>
+
+  <Target Name="ExportPckToModsFolder" AfterTargets="Publish"
+          DependsOnTargets="CopyToModsFolder"
+          Condition="'$(GodotEditorExe)' != '' and Exists('$(GodotEditorExe)') and '$(IsInnerGodotExport)' != 'true'">
+    <Message Text="Exporting Godot resource pck..." Importance="high" />
+    <Exec Command="&quot;$(GodotEditorExe)&quot; --headless --export-pack &quot;Windows Desktop&quot; &quot;$(MSBuildProjectDirectory)\sts2decktracker.pck&quot;"
+          EnvironmentVariables="IsInnerGodotExport=true;MSBUILDDISABLENODEREUSE=1"
+          ContinueOnError="WarnAndContinue" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\sts2decktracker.pck" DestinationFolder="$(ModsFolder)" SkipUnchangedFiles="false" Condition="Exists('$(MSBuildProjectDirectory)\sts2decktracker.pck')" />
+    <Message Text="Successfully copied pck to $(ModsFolder)" Importance="high" />
   </Target>
 
 </Project>

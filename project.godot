@@ -17,3 +17,7 @@ config/icon="res://icon.svg"
 [dotnet]
 
 project/assembly_name="sts2decktracker"
+
+[rendering]
+
+environment/defaults/default_clear_color=Color(0.09411765, 0.12156863, 0.11764706, 1)

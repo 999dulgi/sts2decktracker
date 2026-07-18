@@ -42,6 +42,7 @@ namespace sts2decktracker
         private readonly System.Collections.Generic.List<(CardModel card, Control clip, System.Collections.Generic.List<IHoverTip> tips)> _cardHoverData = new();
         private readonly System.Collections.Generic.Dictionary<CardModel, int> _cardSnapshot = new();
         private readonly System.Collections.Generic.Dictionary<string, RowView> _rowsByKey = new();
+        private static readonly System.Collections.Generic.Dictionary<string, PackedScene> _afflictionEffectCache = new();
 
 
         private sealed class RowView
@@ -491,7 +492,10 @@ namespace sts2decktracker
 
             _cardSnapshot.Clear();
             foreach (var c in pile.Cards)
+            {
                 _cardSnapshot[c] = GetCardHash(c);
+                LogTemporaryKeywords(c);
+            }
 
             var cardGroups = new System.Collections.Generic.Dictionary<string, (CardModel card, int count)>();
             foreach (var card in pile.Cards)
@@ -640,6 +644,62 @@ namespace sts2decktracker
             _rowsByKey.Clear();
         }
 
+        private const string RetainIconPath = "res://images/powers/retain_hand_power.png";
+        private const string SlyIconPath = "res://images/packed/combat_ui/discard_pile.png";
+        private const string EtherealIconPath = "res://images/powers/slippery_power.png";
+        private const string ReplayIconPath = "res://images/packed/modifiers/binary.png";
+
+        // 전투 중 후천적으로 얻은 키워드(다른 모델이 임시로 부여했거나 단발성 Retain/Sly)가 있는지.
+        // 인챈트/카드 자체 효과로 붙은 키워드는 여기 포함 안 됨 (그건 이미 인챈트 아이콘으로 표시됨).
+        internal static bool HasTemporaryKeyword(CardModel card) => GetTemporaryKeywordIconPath(card) != null;
+
+        // 어떤 키워드가 원인인지에 따라 다른 아이콘 경로를 반환. 여러 개가 겹치면 보존 > 교활 > 휘발성 > 재사용 순.
+        internal static string GetTemporaryKeywordIconPath(CardModel card)
+        {
+            var local = card.GetKeywordsWithSources(KeywordSources.Local);
+
+            bool grantedByEffect(CardKeyword kw) =>
+                (card.Keywords.Contains(kw) && !local.Contains(kw))                       // Global (파워 등이 전투 중 임시 부여)
+                || (local.Contains(kw) && AppliedKeywordTrackerPatch.WasAppliedByEffect(card, kw)); // CardCmd.ApplyKeyword로 부여
+
+            if (card.ShouldRetainThisTurn && !card.Keywords.Contains(CardKeyword.Retain))
+                return RetainIconPath;
+            if (grantedByEffect(CardKeyword.Retain))
+                return RetainIconPath;
+
+            if (card.IsSlyThisTurn && !card.Keywords.Contains(CardKeyword.Sly))
+                return SlyIconPath;
+            if (grantedByEffect(CardKeyword.Sly))
+                return SlyIconPath;
+
+            if (grantedByEffect(CardKeyword.Ethereal))
+                return EtherealIconPath;
+
+            // Keyword가 아닌 별도 시스템(BaseReplayCount)이지만 같은 부류: Transfigure/SoldiersStew가
+            // 전투 중에만 ++로 부여하고, 카드 자체 설계로 처음부터 갖고 있는 카드는 없음.
+            if (card.BaseReplayCount > 0)
+                return ReplayIconPath;
+
+            return null;
+        }
+
+        private static void LogTemporaryKeywords(CardModel card)
+        {
+            var local = card.GetKeywordsWithSources(KeywordSources.Local);
+            foreach (var kw in card.Keywords)
+            {
+                if (!local.Contains(kw))
+                    GD.Print($"[KeywordTest] '{card.Title}' has temporary keyword granted by another model: {kw}");
+            }
+
+            // Retain/Sly는 카드 효과가 Keywords 셋을 거치지 않고 별도 단발성 플래그로 부여할 수 있음
+            // (예: Well-Laid Plans -> GiveSingleTurnRetain()). Keywords에 없는데 이 프로퍼티들이 true면 그 경우.
+            if (card.ShouldRetainThisTurn && !card.Keywords.Contains(CardKeyword.Retain))
+                GD.Print($"[KeywordTest] '{card.Title}' has single-turn Retain granted by a card effect (not in Keywords)");
+            if (card.IsSlyThisTurn && !card.Keywords.Contains(CardKeyword.Sly))
+                GD.Print($"[KeywordTest] '{card.Title}' has single-turn Sly granted by a card effect (not in Keywords)");
+        }
+
         private static int GetSortEnergy(CardModel card)
         {
             return card.EnergyCost.CostsX ? int.MaxValue : card.EnergyCost.GetWithModifiers(CostModifiers.All);
@@ -648,9 +708,25 @@ namespace sts2decktracker
         private static string GroupKey(CardModel card)
         {
             string enchantmentKey = card.Enchantment != null ? card.Enchantment.GetType().Name : "none";
+            string afflictionKey = card.Affliction != null ? card.Affliction.Id.Entry : "none";
+            bool hasTemporaryKeyword = HasTemporaryKeyword(card);
             int energy = card.EnergyCost.CostsX ? int.MinValue : card.EnergyCost.GetWithModifiers(CostModifiers.All);
             int star = card.HasStarCostX ? int.MinValue : card.GetStarCostWithModifiers();
-            return $"{card.Title}|{card.IsUpgraded}|{enchantmentKey}|{energy}|{star}";
+            return $"{card.Title}|{card.IsUpgraded}|{enchantmentKey}|{afflictionKey}|{hasTemporaryKeyword}|{energy}|{star}";
+        }
+
+        // Looks up res://sts2decktracker/effects/<affliction id>.tscn, e.g. Hexed -> hexed.tscn.
+        // Not every affliction has an effect scene built yet, so a cached null is expected/normal.
+        internal static PackedScene GetAfflictionEffectScene(AfflictionModel affliction)
+        {
+            string key = affliction.Id.Entry.ToLowerInvariant();
+            if (_afflictionEffectCache.TryGetValue(key, out var cached))
+                return cached;
+
+            string path = $"res://sts2decktracker/effects/{key}.tscn";
+            PackedScene scene = ResourceLoader.Exists(path) ? ResourceLoader.Load<PackedScene>(path) : null;
+            _afflictionEffectCache[key] = scene;
+            return scene;
         }
 
         private static int GetCostHash(CardModel c)
@@ -763,6 +839,10 @@ namespace sts2decktracker
                 nameLabel.ApplyLocaleFontSubstitution(FontType.Bold, "font");
                 labelRow.AddChild(nameLabel);
 
+                // 오른쪽 끝부터 배지(인챈트/임시 키워드)를 차례로 배치하는 커서. 배지를 하나 놓을 때마다 왼쪽으로 당김.
+                float badgeCursorRight = cardImageWidth - 4;
+                int badgeIconSize = cardHeight - 6;
+
                 if (card.Enchantment != null)
                 {
                     try
@@ -771,29 +851,82 @@ namespace sts2decktracker
                         var enchantIcon = string.IsNullOrEmpty(enchantPath) ? null : ResourceLoader.Load<Texture2D>(enchantPath);
                         if (enchantIcon != null)
                         {
-                            int enchantIconSize = cardHeight - 6;
-                            float enchantLeftInLabel = (cardImageWidth - enchantIconSize - 4) - cardHeight;
-
-                            nameLabel.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
-                            nameLabel.CustomMinimumSize = new Vector2(enchantLeftInLabel, 0);
-                            nameLabel.ClipText = true;
-
                             var enchantIconRect = new TextureRect
                             {
                                 Texture = enchantIcon,
-                                Position = new Vector2(cardImageWidth - enchantIconSize - 4, 2),
-                                CustomMinimumSize = new Vector2(enchantIconSize, enchantIconSize),
+                                Position = new Vector2(badgeCursorRight - badgeIconSize, 2),
+                                CustomMinimumSize = new Vector2(badgeIconSize, badgeIconSize),
                                 ExpandMode = TextureRect.ExpandModeEnum.FitWidthProportional,
                                 StretchMode = TextureRect.StretchModeEnum.KeepAspect,
                                 MouseFilter = Control.MouseFilterEnum.Ignore
                             };
                             enchantIconRect.Modulate = new Color(1.5f, 1.3f, 1.8f, 1.0f);
                             clipContainer.AddChild(enchantIconRect);
+                            badgeCursorRight -= badgeIconSize + 2;
                         }
                     }
                     catch (Exception ex)
                     {
                         GD.PrintErr($"[CardListPanel] Error adding enchantment icon: {ex.Message}");
+                    }
+                }
+
+                string tempKeywordIconPath = GetTemporaryKeywordIconPath(card);
+                if (tempKeywordIconPath != null)
+                {
+                    try
+                    {
+                        var tempKeywordIcon = ResourceLoader.Exists(tempKeywordIconPath)
+                            ? ResourceLoader.Load<Texture2D>(tempKeywordIconPath)
+                            : null;
+                        if (tempKeywordIcon != null)
+                        {
+                            var tempKeywordIconRect = new TextureRect
+                            {
+                                Texture = tempKeywordIcon,
+                                Position = new Vector2(badgeCursorRight - badgeIconSize, 2),
+                                CustomMinimumSize = new Vector2(badgeIconSize, badgeIconSize),
+                                ExpandMode = TextureRect.ExpandModeEnum.FitWidthProportional,
+                                StretchMode = TextureRect.StretchModeEnum.KeepAspect,
+                                MouseFilter = Control.MouseFilterEnum.Ignore
+                            };
+                            clipContainer.AddChild(tempKeywordIconRect);
+                            badgeCursorRight -= badgeIconSize + 2;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        GD.PrintErr($"[CardListPanel] Error adding temporary keyword icon: {ex.Message}");
+                    }
+                }
+
+                float reservedForBadges = (cardImageWidth - 4) - badgeCursorRight;
+                if (reservedForBadges > 0)
+                {
+                    nameLabel.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
+                    nameLabel.CustomMinimumSize = new Vector2(cardImageWidth - reservedForBadges - cardHeight, 0);
+                    nameLabel.ClipText = true;
+                }
+
+                if (card.Affliction != null)
+                {
+                    try
+                    {
+                        var afflictionScene = GetAfflictionEffectScene(card.Affliction);
+                        if (afflictionScene != null)
+                        {
+                            var afflictionInstance = afflictionScene.Instantiate<Control>();
+                            afflictionInstance.MouseFilter = Control.MouseFilterEnum.Ignore;
+                            clipContainer.AddChild(afflictionInstance);
+
+                            afflictionInstance.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+                            // Keep the text on top of the effect instead of getting drawn over.
+                            clipContainer.MoveChild(labelRow, clipContainer.GetChildCount() - 1);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        GD.PrintErr($"[CardListPanel] Error adding affliction effect: {ex.Message}");
                     }
                 }
 
@@ -1020,11 +1153,20 @@ namespace sts2decktracker
         {
             int energyCost = c.EnergyCost.CostsX ? -1 : c.EnergyCost.GetWithModifiers(CostModifiers.All);
             int starCost = c.HasStarCostX ? -1 : c.GetStarCostWithModifiers();
+            int keywordHash = 0;
+            foreach (var kw in c.Keywords)
+                keywordHash ^= (int)kw;
+            keywordHash ^= c.ShouldRetainThisTurn ? 1 << 30 : 0;
+            keywordHash ^= c.IsSlyThisTurn ? 1 << 29 : 0;
             return HashCode.Combine(
                 c.CurrentUpgradeLevel,
                 energyCost,
                 starCost,
-                c.Enchantment?.GetType().GetHashCode() ?? 0
+                c.Enchantment?.GetType().GetHashCode() ?? 0,
+                c.Affliction?.Id.Entry.GetHashCode() ?? 0,
+                c.Affliction?.Amount ?? 0,
+                c.BaseReplayCount,
+                keywordHash
             );
         }
 

@@ -1,0 +1,20 @@
+[gd_resource type="ShaderMaterial" load_steps=5 format=3 uid="uid://ce3b7ljxc06n8"]
+
+[ext_resource type="Shader" uid="uid://cbva0ntqpav8n" path="res://sts2decktracker/texture/smog/vfx_ui_card_affliction_smog_main_shader.gdshader" id="1_3hodb"]
+[ext_resource type="Texture2D" uid="uid://qi26oav8os6n" path="res://sts2decktracker/texture/smog/ui_card_smog_mask.png" id="2_yjjq2"]
+
+[sub_resource type="Gradient" id="Gradient_du084"]
+offsets = PackedFloat32Array(0.10084034, 0.859944, 0.9579832)
+colors = PackedColorArray(0.22166497, 0.056894522, 0.14145814, 1, 0.5254902, 0.4, 0.49019608, 1, 0.64256185, 0.5156685, 0.6068731, 1)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_7ilps"]
+gradient = SubResource("Gradient_du084")
+
+[resource]
+shader = ExtResource("1_3hodb")
+shader_parameter/main_st = Vector4(0.5, 0.75, 0.35, 0.45)
+shader_parameter/secondary_st = Vector4(0.75, 0.5, 0.5, -0.1)
+shader_parameter/secondary_smoke_influence = 0.30000000447036
+shader_parameter/erosion_factors = Vector2(0, 1)
+shader_parameter/lut = SubResource("GradientTexture1D_7ilps")
+shader_parameter/mask = ExtResource("2_yjjq2")

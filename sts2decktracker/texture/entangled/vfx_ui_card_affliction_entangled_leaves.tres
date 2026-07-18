@@ -1,0 +1,17 @@
+[gd_resource type="ShaderMaterial" load_steps=4 format=3 uid="uid://b5vc2286jh78l"]
+
+[ext_resource type="Shader" uid="uid://cqrjldsb74y64" path="res://sts2decktracker/texture/entangled/vfx_ui_card_affliction_entangled_leaf_shader.gdshader" id="1_f7vpf"]
+
+[sub_resource type="Gradient" id="Gradient_f7vpf"]
+colors = PackedColorArray(0, 0, 0, 1, 0.047058824, 0.57254905, 0.50980395, 1)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_wnlmc"]
+gradient = SubResource("Gradient_f7vpf")
+
+[resource]
+shader = ExtResource("1_f7vpf")
+shader_parameter/pivot_offset = Vector2(0, -0.3)
+shader_parameter/rotation_offset = Vector2(0.5, 0.8)
+shader_parameter/rotation_st = Vector4(0, 0, 0, 0.1)
+shader_parameter/lut = SubResource("GradientTexture1D_wnlmc")
+shader_parameter/rotation_range = 0.35

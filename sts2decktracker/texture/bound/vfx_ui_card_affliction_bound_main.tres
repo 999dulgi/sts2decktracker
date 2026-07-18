@@ -1,0 +1,8 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3 uid="uid://crwrhejsydnat"]
+
+[ext_resource type="Shader" uid="uid://d0y22hweljwl5" path="res://sts2decktracker/texture/bound/vfx_ui_card_affliction_bound_main_shader.gdshader" id="1_grje2"]
+
+[resource]
+shader = ExtResource("1_grje2")
+shader_parameter/bright_st = Vector4(0, 0, 0.1, 0)
+shader_parameter/bright_energy = 1.5

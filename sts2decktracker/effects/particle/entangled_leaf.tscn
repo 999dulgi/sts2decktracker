@@ -1,0 +1,39 @@
+[gd_scene load_steps=8 format=3 uid="uid://bfg3sjkrhkvb5"]
+
+[ext_resource type="Material" uid="uid://b5vc2286jh78l" path="res://sts2decktracker/texture/entangled/vfx_ui_card_affliction_entangled_leaves.tres" id="1_co7od"]
+[ext_resource type="Texture2D" uid="uid://cx7wlkbsgvipq" path="res://sts2decktracker/texture/entangled/ui_card_entangled_leaf.png" id="1_h4f21"]
+
+[sub_resource type="Curve" id="Curve_h4f21"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="Curve" id="Curve_co7od"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="Curve" id="Curve_k4yyn"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="CurveXYZTexture" id="CurveXYZTexture_m8g4f"]
+curve_x = SubResource("Curve_h4f21")
+curve_y = SubResource("Curve_co7od")
+curve_z = SubResource("Curve_k4yyn")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_co7od"]
+particle_flag_disable_z = true
+gravity = Vector3(0, 0, 0)
+scale_min = 0.65
+scale_max = 0.65
+scale_curve = SubResource("CurveXYZTexture_m8g4f")
+anim_offset_max = 1.0
+
+[node name="leaf" type="GPUParticles2D"]
+texture_repeat = 2
+material = ExtResource("1_co7od")
+amount = 1
+texture = ExtResource("1_h4f21")
+lifetime = 600.0
+fixed_fps = 60
+local_coords = true
+process_material = SubResource("ParticleProcessMaterial_co7od")
