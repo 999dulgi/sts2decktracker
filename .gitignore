@@ -11,3 +11,4 @@ data_sts2mod test_windows_x86_64/*
 .omc/
 
 *.xcf
+sts2decktracker.pck

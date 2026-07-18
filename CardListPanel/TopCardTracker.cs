@@ -13,6 +13,8 @@ namespace sts2decktracker
 
 		public static bool IsIntendedTop(CardModel card) => _intendedTopCards.Contains(card);
 
+		public static void Untrack(CardModel card) => _intendedTopCards.Remove(card);
+
 		public static void PruneCards(CardPile drawPile)
 		{
 			_intendedTopCards.RemoveWhere(c => !drawPile.Cards.Contains(c));

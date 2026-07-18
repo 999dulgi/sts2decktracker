@@ -28,6 +28,8 @@ namespace sts2decktracker
         private float _idleDelaySeconds = 2.0f;
         private CardPile _currentPile = null;
         private MegaCrit.Sts2.Core.Entities.Players.Player _currentPlayer = null;
+        private MegaCrit.Sts2.Core.Entities.Creatures.Creature _subscribedCreature = null;
+        private MegaCrit.Sts2.Core.Entities.Players.PlayerCombatState _subscribedCombatState = null;
         private static Font _KreonRegularFont;
         private static Font KreonRegular => _KreonRegularFont ??= ResourceLoader.Load<Font>("res://fonts/kreon_regular.ttf");
         private Control _contentContainer;
@@ -40,8 +42,12 @@ namespace sts2decktracker
         private CardModel _hoveredCard = null;
         private Control _hoveredClip = null;
         private readonly System.Collections.Generic.List<(CardModel card, Control clip, System.Collections.Generic.List<IHoverTip> tips)> _cardHoverData = new();
-        private readonly System.Collections.Generic.Dictionary<CardModel, int> _cardSnapshot = new();
+        private bool _pileDirty = false;
+        private readonly System.Collections.Generic.HashSet<CardModel> _pileCardSet = new();
         private readonly System.Collections.Generic.Dictionary<string, RowView> _rowsByKey = new();
+        // GroupKey(card) 결과를 카드별로 캐싱한다. 카드 자체 상태 변화는 그 카드 캐시만 지우고,
+        // 코스트/키워드 계산에 쓰이는 훅 자체가 바뀔 수 있는 이벤트는 캐시 전체를 지운다.
+        private readonly System.Collections.Generic.Dictionary<CardModel, string> _groupKeyCache = new();
         private static readonly System.Collections.Generic.Dictionary<string, PackedScene> _afflictionEffectCache = new();
 
 
@@ -74,6 +80,15 @@ namespace sts2decktracker
         {
             if (_hasCustomPosition && !DeckTrackerInjectionPatch._isReturningToMainMenu)
                 DeckTrackerInjectionPatch.SaveCustomPosition(_pileType, _customPosition);
+
+            CardStateBridge.CardStateChanged -= OnCardStateChanged;
+            if (_currentPile != null)
+            {
+                _currentPile.CardAdded -= OnCardAdded;
+                _currentPile.CardRemoved -= OnCardRemoved;
+            }
+            UnsubscribeCreaturePowerEvents();
+            UnsubscribeEnergyEvents();
         }
 
         public void SetSettings(ModSettings settings)
@@ -177,6 +192,8 @@ namespace sts2decktracker
 
         public override void _Ready()
         {
+            CardStateBridge.CardStateChanged += OnCardStateChanged;
+
             var pw = _settings?.PanelWidth ?? 312;
             CustomMinimumSize = new Vector2(pw, 0);
             Size = new Vector2(pw, 0);
@@ -390,6 +407,15 @@ namespace sts2decktracker
 
             if (CombatManager.Instance == null || !CombatManager.Instance.IsInProgress)
             {
+                if (_currentPile != null)
+                {
+                    _currentPile.CardAdded -= OnCardAdded;
+                    _currentPile.CardRemoved -= OnCardRemoved;
+                }
+                UnsubscribeCreaturePowerEvents();
+                UnsubscribeEnergyEvents();
+                _pileCardSet.Clear();
+                _groupKeyCache.Clear();
                 _currentPile = null;
                 _currentPlayer = null;
                 _combatStartLogged = false;
@@ -405,6 +431,9 @@ namespace sts2decktracker
                 _currentPlayer = LocalContext.GetMe(combatState);
                 if (_currentPlayer?.PlayerCombatState == null)
                     return;
+
+                SubscribeCreaturePowerEvents(_currentPlayer.Creature);
+                SubscribeEnergyEvents(_currentPlayer.PlayerCombatState);
             }
 
             var drawPile = _currentPlayer.PlayerCombatState.DrawPile;
@@ -429,7 +458,16 @@ namespace sts2decktracker
 
             if (_currentPile != pile)
             {
+                if (_currentPile != null)
+                {
+                    _currentPile.CardAdded -= OnCardAdded;
+                    _currentPile.CardRemoved -= OnCardRemoved;
+                }
+
                 _currentPile = pile;
+                _currentPile.CardAdded += OnCardAdded;
+                _currentPile.CardRemoved += OnCardRemoved;
+
                 UpdateCardList(_cardList, _currentPile);
                 UpdateDynamicHeight();
                 if (!intentTransparency)
@@ -438,31 +476,17 @@ namespace sts2decktracker
                     _timeSinceLastChange = 0f;
                 }
             }
-            else if (_currentPile != null)
+            else if (_currentPile != null && _pileDirty)
             {
-                bool changed = _currentPile.Cards.Count != _cardSnapshot.Count;
-                if (!changed)
+                _pileDirty = false;
+                if (_pileType == PileType.Draw)
+                    TopCardTracker.PruneCards(_currentPile);
+                UpdateCardList(_cardList, _currentPile);
+                UpdateDynamicHeight();
+                if (!intentTransparency)
                 {
-                    foreach (var c in _currentPile.Cards)
-                    {
-                        if (!_cardSnapshot.TryGetValue(c, out int savedHash) || GetCardHash(c) != savedHash)
-                        {
-                            changed = true;
-                            break;
-                        }
-                    }
-                }
-                if (changed)
-                {
-                    if (_pileType == PileType.Draw)
-                        TopCardTracker.PruneCards(_currentPile);
-                    UpdateCardList(_cardList, _currentPile);
-                    UpdateDynamicHeight();
-                    if (!intentTransparency)
-                    {
-                        _targetOpacity = _settings?.ActiveOpacity ?? 1.0f;
-                        _timeSinceLastChange = 0f;
-                    }
+                    _targetOpacity = _settings?.ActiveOpacity ?? 1.0f;
+                    _timeSinceLastChange = 0f;
                 }
             }
 
@@ -490,17 +514,15 @@ namespace sts2decktracker
             _hoveredCard = null;
             _hoveredClip = null;
 
-            _cardSnapshot.Clear();
+            // 증분 경로(OnCardAdded/OnCardRemoved)가 놓친 게 있어도 여기서 파일 실제 내용과 다시 맞춘다.
+            _pileCardSet.Clear();
             foreach (var c in pile.Cards)
-            {
-                _cardSnapshot[c] = GetCardHash(c);
-                LogTemporaryKeywords(c);
-            }
+                _pileCardSet.Add(c);
 
             var cardGroups = new System.Collections.Generic.Dictionary<string, (CardModel card, int count)>();
             foreach (var card in pile.Cards)
             {
-                string key = GroupKey(card);
+                string key = CachedGroupKey(card);
                 if (cardGroups.TryGetValue(key, out var existing))
                     cardGroups[key] = (existing.card, existing.count + 1);
                 else
@@ -541,7 +563,7 @@ namespace sts2decktracker
 
                 foreach (var oldGroup in _shuffledOrder)
                 {
-                    string key = GroupKey(oldGroup.card);
+                    string key = CachedGroupKey(oldGroup.card);
                     if (remainingCards.TryGetValue(key, out var newGroup))
                     {
                         displayGroups.Add(newGroup);
@@ -562,7 +584,7 @@ namespace sts2decktracker
             var desiredKeys = new System.Collections.Generic.HashSet<string>();
             foreach (var g in displayGroups)
             {
-                if (g.count > 0) desiredKeys.Add(GroupKey(g.card));
+                if (g.count > 0) desiredKeys.Add(CachedGroupKey(g.card));
             }
 
             System.Collections.Generic.List<string> toRemove = null;
@@ -593,7 +615,7 @@ namespace sts2decktracker
             foreach (var group in displayGroups)
             {
                 if (group.count == 0) continue;
-                string key = GroupKey(group.card);
+                string key = CachedGroupKey(group.card);
 
                 if (!_rowsByKey.TryGetValue(key, out var row))
                 {
@@ -656,18 +678,20 @@ namespace sts2decktracker
         // 어떤 키워드가 원인인지에 따라 다른 아이콘 경로를 반환. 여러 개가 겹치면 보존 > 교활 > 휘발성 > 재사용 순.
         internal static string GetTemporaryKeywordIconPath(CardModel card)
         {
+            // card.Keywords는 호출마다 파워/유물 훅을 전부 순회하는 무거운 연산이라 한 번만 계산해서 재사용한다.
             var local = card.GetKeywordsWithSources(KeywordSources.Local);
+            var all = card.Keywords;
 
             bool grantedByEffect(CardKeyword kw) =>
-                (card.Keywords.Contains(kw) && !local.Contains(kw))                       // Global (파워 등이 전투 중 임시 부여)
+                (all.Contains(kw) && !local.Contains(kw))                       // Global (파워 등이 전투 중 임시 부여)
                 || (local.Contains(kw) && AppliedKeywordTrackerPatch.WasAppliedByEffect(card, kw)); // CardCmd.ApplyKeyword로 부여
 
-            if (card.ShouldRetainThisTurn && !card.Keywords.Contains(CardKeyword.Retain))
+            if (card.ShouldRetainThisTurn && !all.Contains(CardKeyword.Retain))
                 return RetainIconPath;
             if (grantedByEffect(CardKeyword.Retain))
                 return RetainIconPath;
 
-            if (card.IsSlyThisTurn && !card.Keywords.Contains(CardKeyword.Sly))
+            if (card.IsSlyThisTurn && !all.Contains(CardKeyword.Sly))
                 return SlyIconPath;
             if (grantedByEffect(CardKeyword.Sly))
                 return SlyIconPath;
@@ -683,23 +707,6 @@ namespace sts2decktracker
             return null;
         }
 
-        private static void LogTemporaryKeywords(CardModel card)
-        {
-            var local = card.GetKeywordsWithSources(KeywordSources.Local);
-            foreach (var kw in card.Keywords)
-            {
-                if (!local.Contains(kw))
-                    GD.Print($"[KeywordTest] '{card.Title}' has temporary keyword granted by another model: {kw}");
-            }
-
-            // Retain/Sly는 카드 효과가 Keywords 셋을 거치지 않고 별도 단발성 플래그로 부여할 수 있음
-            // (예: Well-Laid Plans -> GiveSingleTurnRetain()). Keywords에 없는데 이 프로퍼티들이 true면 그 경우.
-            if (card.ShouldRetainThisTurn && !card.Keywords.Contains(CardKeyword.Retain))
-                GD.Print($"[KeywordTest] '{card.Title}' has single-turn Retain granted by a card effect (not in Keywords)");
-            if (card.IsSlyThisTurn && !card.Keywords.Contains(CardKeyword.Sly))
-                GD.Print($"[KeywordTest] '{card.Title}' has single-turn Sly granted by a card effect (not in Keywords)");
-        }
-
         private static int GetSortEnergy(CardModel card)
         {
             return card.EnergyCost.CostsX ? int.MaxValue : card.EnergyCost.GetWithModifiers(CostModifiers.All);
@@ -713,6 +720,15 @@ namespace sts2decktracker
             int energy = card.EnergyCost.CostsX ? int.MinValue : card.EnergyCost.GetWithModifiers(CostModifiers.All);
             int star = card.HasStarCostX ? int.MinValue : card.GetStarCostWithModifiers();
             return $"{card.Title}|{card.IsUpgraded}|{enchantmentKey}|{afflictionKey}|{hasTemporaryKeyword}|{energy}|{star}";
+        }
+
+        private string CachedGroupKey(CardModel card)
+        {
+            if (_groupKeyCache.TryGetValue(card, out var cached))
+                return cached;
+            string key = GroupKey(card);
+            _groupKeyCache[card] = key;
+            return key;
         }
 
         // Looks up res://sts2decktracker/effects/<affliction id>.tscn, e.g. Hexed -> hexed.tscn.
@@ -1149,26 +1165,191 @@ namespace sts2decktracker
             return card.IsUpgraded ? $"{card.Title}" : card.Title;
         }
 
-        private static int GetCardHash(CardModel c)
+        // CardStateBridge는 전역으로 발동하므로 _pileCardSet으로 걸러서, 이 패널이 보여주는
+        // 파일에 속한 카드가 바뀔 때만 dirty를 세운다.
+        private void OnCardStateChanged(CardModel card)
         {
-            int energyCost = c.EnergyCost.CostsX ? -1 : c.EnergyCost.GetWithModifiers(CostModifiers.All);
-            int starCost = c.HasStarCostX ? -1 : c.GetStarCostWithModifiers();
-            int keywordHash = 0;
-            foreach (var kw in c.Keywords)
-                keywordHash ^= (int)kw;
-            keywordHash ^= c.ShouldRetainThisTurn ? 1 << 30 : 0;
-            keywordHash ^= c.IsSlyThisTurn ? 1 << 29 : 0;
-            return HashCode.Combine(
-                c.CurrentUpgradeLevel,
-                energyCost,
-                starCost,
-                c.Enchantment?.GetType().GetHashCode() ?? 0,
-                c.Affliction?.Id.Entry.GetHashCode() ?? 0,
-                c.Affliction?.Amount ?? 0,
-                c.BaseReplayCount,
-                keywordHash
-            );
+            _groupKeyCache.Remove(card);
+            if (_pileCardSet.Contains(card))
+                _pileDirty = true;
         }
+
+        // 카드 한 장의 추가/제거를 그 카드가 속한 그룹의 카운트만 증감시키는 증분 방식으로 처리한다.
+        // _shuffledOrder/_rowsByKey는 그룹 수만큼만 순회한다.
+        private void OnCardAdded(CardModel card)
+        {
+            _pileCardSet.Add(card);
+
+            if (_currentPile == null || _shuffledOrder == null || _shuffledOrder.Count == 0)
+            {
+                _pileDirty = true;
+                return;
+            }
+
+            string key = CachedGroupKey(card);
+            int idx = FindShuffledOrderIndex(key);
+            if (idx >= 0)
+            {
+                var (existingCard, count) = _shuffledOrder[idx];
+                int newCount = count + 1;
+                _shuffledOrder[idx] = (existingCard, newCount);
+                if (_rowsByKey.TryGetValue(key, out var row) && row.CountLabel != null)
+                    row.CountLabel.Text = newCount.ToString();
+            }
+            else
+            {
+                _shuffledOrder.Add((card, 1));
+                var row = BuildCardRow(card, 1);
+                if (row != null)
+                {
+                    _cardList.AddChild(row.Root);
+                    _rowsByKey[key] = row;
+                    if (row.ClipContainer != null && GodotObject.IsInstanceValid(row.ClipContainer))
+                    {
+                        var hoverTips = new System.Collections.Generic.List<IHoverTip> { new CardHoverTip(card) };
+                        hoverTips.AddRange(card.HoverTips);
+                        _cardHoverData.Add((card, row.ClipContainer, hoverTips));
+                    }
+                }
+            }
+            UpdateDynamicHeight();
+        }
+
+        private void OnCardRemoved(CardModel card)
+        {
+            _pileCardSet.Remove(card);
+
+            if (_pileType == PileType.Draw)
+                TopCardTracker.Untrack(card);
+
+            if (_currentPile == null || _shuffledOrder == null || _shuffledOrder.Count == 0)
+            {
+                _pileDirty = true;
+                return;
+            }
+
+            string key = CachedGroupKey(card);
+            int idx = FindShuffledOrderIndex(key);
+            if (idx < 0)
+            {
+                // 증분 상태가 실제 파일과 어긋난 경우를 대비한 안전망 — 전체 재계산으로 복구.
+                _pileDirty = true;
+                return;
+            }
+
+            var (existingCard, count) = _shuffledOrder[idx];
+            if (count <= 1)
+            {
+                _shuffledOrder.RemoveAt(idx);
+                if (_rowsByKey.TryGetValue(key, out var row))
+                {
+                    if (row.ClipContainer != null)
+                        _cardHoverData.RemoveAll(t => t.clip == row.ClipContainer);
+                    if (GodotObject.IsInstanceValid(row.Root))
+                    {
+                        _cardList.RemoveChild(row.Root);
+                        row.Root.QueueFree();
+                    }
+                    _rowsByKey.Remove(key);
+                }
+            }
+            else
+            {
+                int newCount = count - 1;
+                _shuffledOrder[idx] = (existingCard, newCount);
+                if (_rowsByKey.TryGetValue(key, out var row) && row.CountLabel != null)
+                    row.CountLabel.Text = newCount.ToString();
+            }
+            UpdateDynamicHeight();
+        }
+
+        private int FindShuffledOrderIndex(string key)
+        {
+            for (int i = 0; i < _shuffledOrder.Count; i++)
+                if (CachedGroupKey(_shuffledOrder[i].card) == key)
+                    return i;
+            return -1;
+        }
+
+        // 파워 감지
+        private void SubscribeCreaturePowerEvents(MegaCrit.Sts2.Core.Entities.Creatures.Creature creature)
+        {
+            if (creature == null || _subscribedCreature == creature) return;
+            UnsubscribeCreaturePowerEvents();
+            _subscribedCreature = creature;
+            _subscribedCreature.PowerApplied += OnCreaturePowerApplied;
+            _subscribedCreature.PowerIncreased += OnCreaturePowerIncreased;
+            _subscribedCreature.PowerDecreased += OnCreaturePowerDecreased;
+            _subscribedCreature.PowerRemoved += OnCreaturePowerRemoved;
+        }
+
+        private void UnsubscribeCreaturePowerEvents()
+        {
+            if (_subscribedCreature == null) return;
+            _subscribedCreature.PowerApplied -= OnCreaturePowerApplied;
+            _subscribedCreature.PowerIncreased -= OnCreaturePowerIncreased;
+            _subscribedCreature.PowerDecreased -= OnCreaturePowerDecreased;
+            _subscribedCreature.PowerRemoved -= OnCreaturePowerRemoved;
+            _subscribedCreature = null;
+        }
+
+        // 코스트/키워드 계산 훅을 오버라이드하는 파워일 때만 캐시 전체를 지운다.
+        private void OnCreaturePowerApplied(PowerModel power) => MaybeInvalidateGroupKeyCache(power);
+        private void OnCreaturePowerIncreased(PowerModel power, int change, bool silent) => MaybeInvalidateGroupKeyCache(power);
+        private void OnCreaturePowerDecreased(PowerModel power, bool silent) => MaybeInvalidateGroupKeyCache(power);
+        private void OnCreaturePowerRemoved(PowerModel power) => MaybeInvalidateGroupKeyCache(power);
+
+        private static readonly System.Collections.Generic.Dictionary<Type, bool> _powerAffectsGroupKeyCache = new();
+
+        private static bool PowerAffectsGroupKey(PowerModel power)
+        {
+            var type = power.GetType();
+            if (_powerAffectsGroupKeyCache.TryGetValue(type, out var cached))
+                return cached;
+
+            bool affects = OverridesAbstractModelMethod(type, nameof(AbstractModel.TryModifyEnergyCostInCombat))
+                || OverridesAbstractModelMethod(type, nameof(AbstractModel.TryModifyEnergyCostInCombatLate))
+                || OverridesAbstractModelMethod(type, nameof(AbstractModel.TryModifyStarCost))
+                || OverridesAbstractModelMethod(type, nameof(AbstractModel.TryModifyKeywordsInCombat));
+
+            _powerAffectsGroupKeyCache[type] = affects;
+            return affects;
+        }
+
+        private static bool OverridesAbstractModelMethod(Type type, string methodName)
+        {
+            var method = type.GetMethod(methodName);
+            return method != null && method.DeclaringType != typeof(AbstractModel);
+        }
+
+        private void MaybeInvalidateGroupKeyCache(PowerModel power)
+        {
+            if (!PowerAffectsGroupKey(power))
+                return; // 바리케이드처럼 코스트/키워드와 무관한 파워는 캐시를 건드릴 필요가 없다.
+            _groupKeyCache.Clear();
+            _pileDirty = true;
+        }
+
+        // CardCostHelper.GetEnergyCostColor는 파일 종류와 무관하게 현재 Energy/Stars 자원량과 코스트를
+        // 비교해 "자원 부족(빨강)" 색을 결정한다. 카드/파워 이벤트로는 안 잡히므로 자원 변화 자체를 구독한다.
+        private void SubscribeEnergyEvents(MegaCrit.Sts2.Core.Entities.Players.PlayerCombatState combatState)
+        {
+            if (combatState == null || _subscribedCombatState == combatState) return;
+            UnsubscribeEnergyEvents();
+            _subscribedCombatState = combatState;
+            _subscribedCombatState.EnergyChanged += OnResourceChanged;
+            _subscribedCombatState.StarsChanged += OnResourceChanged;
+        }
+
+        private void UnsubscribeEnergyEvents()
+        {
+            if (_subscribedCombatState == null) return;
+            _subscribedCombatState.EnergyChanged -= OnResourceChanged;
+            _subscribedCombatState.StarsChanged -= OnResourceChanged;
+            _subscribedCombatState = null;
+        }
+
+        private void OnResourceChanged(int newValue, int oldValue) => _pileDirty = true;
 
         public void ResetTemporaryState()
         {
