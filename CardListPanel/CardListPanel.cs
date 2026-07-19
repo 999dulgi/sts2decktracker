@@ -714,12 +714,25 @@ namespace sts2decktracker
 
         private static string GroupKey(CardModel card)
         {
-            string enchantmentKey = card.Enchantment != null ? card.Enchantment.GetType().Name : "none";
-            string afflictionKey = card.Affliction != null ? card.Affliction.Id.Entry : "none";
-            bool hasTemporaryKeyword = HasTemporaryKeyword(card);
-            int energy = card.EnergyCost.CostsX ? int.MinValue : card.EnergyCost.GetWithModifiers(CostModifiers.All);
-            int star = card.HasStarCostX ? int.MinValue : card.GetStarCostWithModifiers();
-            return $"{card.Title}|{card.IsUpgraded}|{enchantmentKey}|{afflictionKey}|{hasTemporaryKeyword}|{energy}|{star}";
+            // 이 함수가 예외를 던지면 OnCardAdded/OnCardRemoved가 행 정리 로직에 도달하기 전에 중단되고
+            // _pileDirty도 세팅되지 않아, 파일에서 이미 빠진 카드의 행이 패널에 영구히 남는다 (예: 방금
+            // 생성된 토큰 카드가 아직 일부 필드가 완전히 준비되지 않은 짧은 순간에 호출되는 경우).
+            // 다른 모든 렌더링 헬퍼처럼 여기도 방어적으로 감싸고, 실패 시에도 최소한 카드별로 구분되는
+            // 키를 반환해 행이 유령처럼 남지 않게 한다.
+            try
+            {
+                string enchantmentKey = card.Enchantment != null ? card.Enchantment.GetType().Name : "none";
+                string afflictionKey = card.Affliction != null ? card.Affliction.Id.Entry : "none";
+                bool hasTemporaryKeyword = HasTemporaryKeyword(card);
+                int energy = card.EnergyCost.CostsX ? int.MinValue : card.EnergyCost.GetWithModifiers(CostModifiers.All);
+                int star = card.HasStarCostX ? int.MinValue : card.GetStarCostWithModifiers();
+                return $"{card.Title}|{card.IsUpgraded}|{enchantmentKey}|{afflictionKey}|{hasTemporaryKeyword}|{energy}|{star}";
+            }
+            catch (Exception ex)
+            {
+                GD.PrintErr($"[CardListPanel] GroupKey failed for '{card.Title}': {ex}");
+                return $"{card.Title}|error|{card.GetHashCode()}";
+            }
         }
 
         private string CachedGroupKey(CardModel card)
