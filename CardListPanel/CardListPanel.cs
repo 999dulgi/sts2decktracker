@@ -758,6 +758,21 @@ namespace sts2decktracker
             return scene;
         }
 
+        // CardCostHelper.GetEnergyCostColor는 CanPlay()로 "지금 에너지가 부족한가"부터 확인해서, 부족하면
+        // 실제 증가/감소 여부와 무관하게 InsufficientResources를 반환한다. 손패 UI에서는 맞는 동작이지만,
+        // 이 패널은 드로우/디스카드 파일 카드(=지금 낼 수 있는지 자체가 무의미)를 보여주므로 그 게이트를
+        // 우회하고 "기본 코스트 대비 지금 코스트가 바뀌었는지"만으로 직접 판정한다.
+        private static CardCostColor GetPileCostColor(CardModel card)
+        {
+            if (card.EnergyCost == null || card.EnergyCost.CostsX)
+                return CardCostColor.Unmodified;
+            int current = card.EnergyCost.GetWithModifiers(CostModifiers.All);
+            int baseCost = card.EnergyCost.GetWithModifiers(CostModifiers.None);
+            if (current > baseCost) return CardCostColor.Increased;
+            if (current < baseCost) return CardCostColor.Decreased;
+            return CardCostColor.Unmodified;
+        }
+
         private static int GetCostHash(CardModel c)
         {
             int energy = c.EnergyCost.CostsX ? int.MinValue : c.EnergyCost.GetWithModifiers(CostModifiers.All);
@@ -766,7 +781,7 @@ namespace sts2decktracker
             try
             {
                 if (c.CombatState != null)
-                    costColor = (int)CardCostHelper.GetEnergyCostColor(c, c.CombatState);
+                    costColor = (int)GetPileCostColor(c);
             }
             catch { }
             bool justUpgraded = c.EnergyCost != null && !c.EnergyCost.CostsX && c.EnergyCost.WasJustUpgraded;
@@ -1076,8 +1091,11 @@ namespace sts2decktracker
                 }
                 else if (card.CombatState != null)
                 {
-                    CardCostColor costColor = CardCostHelper.GetEnergyCostColor(card, card.CombatState);
-                    switch (costColor)
+                    // CardCostHelper.GetEnergyCostColor는 "지금 손패에서 낼 수 있는가"까지 따져서
+                    // 에너지가 모자라면 무조건 InsufficientResources를 반환해버린다 (증가/감소 여부 무시).
+                    // 이 패널은 드로우/디스카드 파일의 카드를 보여주는 거라 "지금 낼 수 있는지"는 무관하고
+                    // "코스트가 원래보다 바뀌었는지"만 중요하므로, 그 판정 로직을 직접 재현해서 우회한다.
+                    switch (GetPileCostColor(card))
                     {
                         case CardCostColor.Increased:
                             fontColor = StsColors.energyBlue;
@@ -1212,6 +1230,20 @@ namespace sts2decktracker
             else
             {
                 _shuffledOrder.Add((card, 1));
+                // idx<0이므로 _shuffledOrder엔 이 key를 추적하는 그룹이 없다. 그런데도 _rowsByKey에 이미
+                // 같은 key의 row가 있다면, 그건 그룹 키가 캐싱된 뒤 실제 상태(파워/인챈트 등)가 바뀌기 전에
+                // 같은 key로 먼저 추가됐다가 고아가 된 이전 row다. 덮어쓰기 전에 반드시 정리해야 한다.
+                if (_rowsByKey.TryGetValue(key, out var staleRow))
+                {
+                    if (staleRow.ClipContainer != null)
+                        _cardHoverData.RemoveAll(t => t.clip == staleRow.ClipContainer);
+                    if (GodotObject.IsInstanceValid(staleRow.Root))
+                    {
+                        _cardList.RemoveChild(staleRow.Root);
+                        staleRow.Root.QueueFree();
+                    }
+                    _rowsByKey.Remove(key);
+                }
                 var row = BuildCardRow(card, 1);
                 if (row != null)
                 {
@@ -1337,7 +1369,8 @@ namespace sts2decktracker
 
         private void MaybeInvalidateGroupKeyCache(PowerModel power)
         {
-            if (!PowerAffectsGroupKey(power))
+            bool affects = PowerAffectsGroupKey(power);
+            if (!affects)
                 return; // 바리케이드처럼 코스트/키워드와 무관한 파워는 캐시를 건드릴 필요가 없다.
             _groupKeyCache.Clear();
             _pileDirty = true;
