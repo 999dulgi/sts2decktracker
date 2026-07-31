@@ -202,7 +202,7 @@ namespace sts2decktracker
                     }
                 }
 
-                string tempKeywordIconPath = CardListPanel.GetTemporaryKeywordIconPath(topCard);
+                string tempKeywordIconPath = CardPileWatcher.GetTemporaryKeywordIconPath(topCard);
                 if (tempKeywordIconPath != null)
                 {
                     try
