@@ -70,6 +70,14 @@ namespace sts2decktracker
         public static void Postfix(CardModel __instance) => CardStateBridge.Raise(__instance);
     }
 
+    // 숨겨진 보석(HiddenGem) 등이 카드에 재사용(Replay) 횟수를 부여할 때 사용하는 setter.
+    // GetTemporaryKeywordIconPath가 BaseReplayCount를 GroupKey에 반영하므로 여기도 브로드캐스트가 필요하다.
+    [HarmonyPatch(typeof(CardModel), "BaseReplayCount", MethodType.Setter)]
+    internal static class BaseReplayCountSetterPatch
+    {
+        public static void Postfix(CardModel __instance) => CardStateBridge.Raise(__instance);
+    }
+
     [HarmonyPatch(typeof(CardModel), nameof(CardModel.AddKeyword))]
     internal static class AddKeywordPatch
     {
