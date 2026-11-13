@@ -60,11 +60,11 @@ namespace sts2decktracker
 		}
 	}
 
-	// CardCmd.Transform은 한 이터레이션 안에서 original.AfterTransformedFrom() 직후 바로
-	// replacement.AfterTransformedTo()를 호출한다(다른 카드의 add/remove가 끼어들 수 없음).
+	// CardCmd.Transform은 한 이터레이션 안에서 original.AfterThisWasTransformedInto(replacement) 직후 바로
+	// replacement.AfterThisWasTransformedFrom(original)을 호출한다(다른 카드의 add/remove가 끼어들 수 없음).
 	// 이 두 훅을 이용해 "지금 NEXT로 표시 중이던 카드"가 transform된 것인지를 카드 identity로
 	// 정확히 판정하고, 그렇다면 물리적 인덱스와 상관없이 새 카드도 그대로 NEXT로 이어서 추적한다.
-	[HarmonyPatch(typeof(CardModel), nameof(CardModel.AfterTransformedFrom))]
+	[HarmonyPatch(typeof(CardModel), "AfterThisWasTransformedInto")]
 	public static class CardTransformFromTrackPatch
 	{
 		internal static CardModel _pendingTransformSource;
@@ -76,7 +76,7 @@ namespace sts2decktracker
 		}
 	}
 
-	[HarmonyPatch(typeof(CardModel), nameof(CardModel.AfterTransformedTo))]
+	[HarmonyPatch(typeof(CardModel), "AfterThisWasTransformedFrom")]
 	public static class CardTransformToTrackPatch
 	{
 		public static void Prefix(CardModel __instance)
